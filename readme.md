@@ -1,4 +1,4 @@
-## Video Player
+## Motion Player
 
 <img src="assets/images/readme.png">
 
@@ -24,6 +24,12 @@ This is a simple video player app.
 - Mouse Wheel: Increase/decrease volume
 - Ctrl O: Upload file
 - Ctrl S: Download file
+
+### Design
+
+Our design is available here: https://www.figma.com/design/PpYPQAYojONPWedMbDRL8t/Motion-Player 
+
+*New design is wip
 
 ### Installation
 
