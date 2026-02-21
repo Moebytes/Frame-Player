@@ -2,43 +2,22 @@ import React, {useEffect, useRef, useState} from "react"
 import {useFilterSelector} from "../store"
 import Slider from "react-slider"
 import functions from "../structures/functions"
-import playButton from "../assets/icons/play.png"
-import playButtonHover from "../assets/icons/play-hover.png"
-import pauseButton from "../assets/icons/pause.png"
-import pauseButtonHover from "../assets/icons/pause-hover.png"
-import nextButton from "../assets/icons/next.png"
-import nextButtonHover from "../assets/icons/next-hover.png"
-import previousButton from "../assets/icons/previous.png"
-import previousButtonHover from "../assets/icons/previous-hover.png"
-import reverseButton from "../assets/icons/reverse.png"
-import reverseButtonHover from "../assets/icons/reverse-hover.png"
-import reverseActiveButton from "../assets/icons/reverse-active.png"
-import speedButton from "../assets/icons/speed.png"
-import speedButtonHover from "../assets/icons/speed-hover.png"
-import speedActiveButton from "../assets/icons/speed-active.png"
-import loopButton from "../assets/icons/loop.png"
-import loopButtonHover from "../assets/icons/loop-hover.png"
-import loopActiveButton from "../assets/icons/loop-active.png"
-import abloopButton from "../assets/icons/abloop.png"
-import abloopButtonHover from "../assets/icons/abloop-hover.png"
-import abloopActiveButton from "../assets/icons/abloop-active.png"
-import resetButton from "../assets/icons/clear.png"
-import resetButtonHover from "../assets/icons/clear-hover.png"
-import subtitleButton from "../assets/icons/sub.png"
-import subtitleButtonHover from "../assets/icons/sub-hover.png"
-import subtitleButtonActive from "../assets/icons/sub-active.png"
-import fullscreenButton from "../assets/icons/fullscreen.png"
-import fullscreenButtonHover from "../assets/icons/fullscreen-hover.png"
-import volumeButton from "../assets/icons/volume.png"
-import volumeButtonHover from "../assets/icons/volume-hover.png"
-import volumeLowButton from "../assets/icons/volume-low.png"
-import volumeLowButtonHover from "../assets/icons/volume-low-hover.png"
-import muteButton from "../assets/icons/mute.png"
-import muteButtonHover from "../assets/icons/mute-hover.png"
-import rewindButton from "../assets/icons/rewind.png"
-import rewindButtonHover from "../assets/icons/rewind-hover.png"
-import fastForwardButton from "../assets/icons/fastforward.png"
-import fastForwardButtonHover from "../assets/icons/fastforward-hover.png"
+import PlayIcon from "../assets/svg/play.svg"
+import PauseIcon from "../assets/svg/pause.svg"
+import NextIcon from "../assets/svg/next.svg"
+import PreviousIcon from "../assets/svg/previous.svg"
+import ReverseIcon from "../assets/svg/reverse.svg"
+import SpeedIcon from "../assets/svg/speed.svg"
+import LoopIcon from "../assets/svg/loop.svg"
+import ABLoopIcon from "../assets/svg/abloop.svg"
+import ResetIcon from "../assets/svg/revert.svg"
+import SubIcon from "../assets/svg/sub.svg"
+import FullscreenIcon from "../assets/svg/fullscreen.svg"
+import VolumeIcon from "../assets/svg/volume.svg"
+import VolumeLowIcon from "../assets/svg/volume-low.svg"
+import VolumeMuteIcon from "../assets/svg/volume-mute.svg"
+import RewindIcon from "../assets/svg/rewind.svg"
+import FastForwardIcon from "../assets/svg/fastforward.svg"
 import {useDropzone} from "react-dropzone"
 import placeholder from "../assets/images/placeholder.png"
 import path from "path"
@@ -666,14 +645,11 @@ const VideoPlayer: React.FunctionComponent = (props) => {
 
     const volumeIcon = () => {
         if (state.volume > 0.5) {
-            if (volumeHover) return volumeButtonHover
-            return volumeButton
+            return <VolumeIcon className="control-button" onClick={() => mute()}/>
         } else if (state.volume > 0) {
-            if (volumeHover) return volumeLowButtonHover
-            return volumeLowButton
+            return <VolumeLowIcon className="control-button" onClick={() => mute()}/>
         } else {
-            if (volumeHover) return muteButtonHover
-            return muteButton
+            return <VolumeMuteIcon className="control-button" onClick={() => mute()}/>
         }
     }
 
@@ -864,10 +840,10 @@ const VideoPlayer: React.FunctionComponent = (props) => {
         <main className="video-player" {...getRootProps()}>
             <div className="video-player-container" ref={playerRef}>
                 <div className={hoverBar ? "left-bar visible" : "left-bar"} onMouseEnter={() => setHoverBar(true)} onMouseLeave={() => setHoverBar(false)}>
-                    <img className="bar-button" src={previousHover ? previousButtonHover : previousButton} onClick={() => previous()} onMouseEnter={() => setPreviousHover(true)} onMouseLeave={() => setPreviousHover(false)}/>
+                    <PreviousIcon className="bar-button" onClick={() => previous()}/>
                 </div>
                 <div className={hoverBar ? "right-bar visible" : "right-bar"} onMouseEnter={() => setHoverBar(true)} onMouseLeave={() => setHoverBar(false)}>
-                    <img className="bar-button" src={nextHover ? nextButtonHover : nextButton} onClick={() => next()} onMouseEnter={() => setNextHover(true)} onMouseLeave={() => setNextHover(false)}/>
+                    <NextIcon className="bar-button" onClick={() => next()}/>
                 </div>
                 {/*@ts-ignore*/}
                 {state.audio ? <img className="audio-placeholder" src={placeholder}/> : null}
@@ -898,7 +874,7 @@ const VideoPlayer: React.FunctionComponent = (props) => {
                         <p className="control-text">{functions.formatSeconds(state.duration)}</p>
                     </div>
                     <div className="control-row">
-                        <img className="control-button" src={reverseHover ? reverseButtonHover : (state.reverse ? reverseActiveButton : reverseButton)} onClick={() => reverse()} onMouseEnter={() => setReverseHover(true)} onMouseLeave={() => setReverseHover(false)}/>
+                        <ReverseIcon className="control-button" onClick={() => reverse()}/>
                         <div className="speed-popup-container" ref={speedPopup} style={({display: "none"})}>
                                 <div className="speed-popup">
                                     <input type="range" ref={speedBar} onChange={(event) => speed(event.target.value)} min="0.5" max="4" step="0.5" value={state.speed} className="speed-bar"/>
@@ -907,16 +883,16 @@ const VideoPlayer: React.FunctionComponent = (props) => {
                                     </div>
                                 </div>
                             </div>
-                        <img className="control-button" src={speedHover ? speedButtonHover : (state.speed !== 1 ? speedActiveButton : speedButton)} ref={speedImg} onClick={() => speedPopup.current!.style.display === "flex" ? speedPopup.current!.style.display = "none" : speedPopup.current!.style.display = "flex"} onMouseEnter={() => setSpeedHover(true)} onMouseLeave={() => setSpeedHover(false)}/>
-                        <img className="control-button" src={loopHover ? loopButtonHover : (state.loop ? loopActiveButton : loopButton)} onClick={() => loop()} onMouseEnter={() => setLoopHover(true)} onMouseLeave={() => setLoopHover(false)}/>
-                        <img className="control-button" src={abloopHover ? abloopButtonHover : (state.abloop ? abloopActiveButton : abloopButton)} onClick={() => toggleAB()} onMouseEnter={() => setABLoopHover(true)} onMouseLeave={() => setABLoopHover(false)}/>
-                        <img className="control-button" src={resetHover ? resetButtonHover : resetButton} onClick={() => reset()} onMouseEnter={() => setResetHover(true)} onMouseLeave={() => setResetHover(false)}/>
-                        <img className="control-button rewind-button" src={rewindHover ? rewindButtonHover : rewindButton} onClick={() => rewind()} onMouseEnter={() => setRewindHover(true)} onMouseLeave={() => setRewindHover(false)}/>
-                        <img className="control-button play-button" src={playHover ? (state.paused ? playButtonHover : pauseButtonHover) : (state.paused ? playButton : pauseButton)} onClick={() => play()} onMouseEnter={() => setPlayHover(true)} onMouseLeave={() => setPlayHover(false)}/>
-                        <img className="control-button rewind-button" src={fastForwardHover ? fastForwardButtonHover : fastForwardButton} onClick={() => fastforward()} onMouseEnter={() => setFastforwardHover(true)} onMouseLeave={() => setFastforwardHover(false)}/>
-                        <img className="control-button" src={subtitleHover ? subtitleButtonHover : (state.subtitles ? subtitleButtonActive : subtitleButton)} onClick={() => subtitles()} onMouseEnter={() => setSubtitleHover(true)} onMouseLeave={() => setSubtitleHover(false)}/>
-                        <img className="control-button" src={fullscreenHover ? fullscreenButtonHover : fullscreenButton} onClick={() => fullscreen()} onMouseEnter={() => setFullscreenHover(true)} onMouseLeave={() => setFullscreenHover(false)}/>
-                        <img className="control-button" src={volumeIcon()} onClick={() => mute()} onMouseEnter={() => setVolumeHover(true)} onMouseLeave={() => setVolumeHover(false)}/>
+                        <SpeedIcon className="control-button" ref={speedImg} onClick={() => speedPopup.current!.style.display === "flex" ? speedPopup.current!.style.display = "none" : speedPopup.current!.style.display = "flex"}/>
+                        <LoopIcon className="control-button" onClick={() => loop()}/>
+                        <ABLoopIcon className="control-button" onClick={() => toggleAB()}/>
+                        <ResetIcon className="control-button" onClick={() => reset()}/>
+                        <RewindIcon className="control-button rewind-button" onClick={() => rewind()}/>
+                        <PlayIcon className="control-button play-button" onClick={() => play()}/>
+                        <FastForwardIcon className="control-button rewind-button" onClick={() => fastforward()}/>
+                        <SubIcon className="control-button" onClick={() => subtitles()}/>
+                        <FullscreenIcon className="control-button" onClick={() => fullscreen()}/>
+                        {volumeIcon()}
                         <Slider className="volume-slider" trackClassName="volume-slider-track" thumbClassName="volume-slider-thumb" onChange={(value) => volume(value)} min={0} max={1} step={0.01} value={state.volume}/>
                     </div>
                 </div>

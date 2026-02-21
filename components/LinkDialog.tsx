@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useRef} from "react"
-import searchIcon from "../assets/icons/search-icon.png"
+import SearchIcon from "../assets/svg/search.svg"
 import "./styles/linkdialog.less"
 
 const LinkDialog: React.FunctionComponent = (props) => {
@@ -68,7 +68,10 @@ const LinkDialog: React.FunctionComponent = (props) => {
                     <div className="link-container">
                         <form className="link-search-bar">
                             <input type="text" className="link-search-box" ref={searchBox} placeholder="Youtube or video link..." spellCheck="false"/>
-                            <button onClick={(event) => {event.preventDefault(); link()}} className="link-search-button"><img src={searchIcon} width="20" height="20" className="link-search-icon"/></button>
+                            
+                            <button onClick={(event) => {event.preventDefault(); link()}} className="link-search-button">
+                                <SearchIcon className="link-search-icon"/>
+                            </button>
                         </form>
                     </div>
                 </div>

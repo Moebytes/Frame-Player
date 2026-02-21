@@ -48,8 +48,9 @@ ipcMain.handle("maximize", (event) => {
     }
 })
 
-ipcMain.on("moveWindow", () => {
-  const handle = window?.getNativeWindowHandle()
+ipcMain.on("moveWindow", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const handle = win?.getNativeWindowHandle()
   if (!handle) return
   const windowID = process.platform === "linux" ? handle.readUInt32LE(0) : handle
   dragAddon.startDrag(windowID)
@@ -320,14 +321,6 @@ ipcMain.handle("select-file", async () => {
     properties: ["openFile"]
   })
   return files.filePaths[0] ? files.filePaths[0] : null
-})
-
-ipcMain.handle("get-transparency", () => {
-  return store.get("transparency", false)
-})
-
-ipcMain.handle("save-transparency", (event, transparency: string) => {
-  store.set("transparency", transparency)
 })
 
 ipcMain.handle("get-theme", () => {

@@ -32,8 +32,7 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
         ipcRenderer.send(channel, ...args)
     },
     on: (channel: string, listener: (...args: any[]) => void) => {
-        const subscription = (_event: IpcRendererEvent, ...args: any[]) =>
-        listener(...args)
+        const subscription = (event: IpcRendererEvent, ...args: any[]) => listener(event, ...args)
 
         ipcRenderer.on(channel, subscription)
 
