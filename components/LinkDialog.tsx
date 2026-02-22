@@ -14,19 +14,11 @@ const LinkDialog: React.FunctionComponent = (props) => {
         const closeAllDialogs = (event: any, ignore: any) => {
             if (ignore !== "link") setVisible(false)
         }
-        const triggerPaste = () => {
-            const text = window.clipboard.readText()
-            if (text) {
-                searchBox.current!.value += text
-            }
-        }
         window.ipcRenderer.on("show-link-dialog", showLinkDialog)
         window.ipcRenderer.on("close-all-dialogs", closeAllDialogs)
-        window.ipcRenderer.on("trigger-paste", triggerPaste)
         return () => {
             window.ipcRenderer.removeListener("show-link-dialog", showLinkDialog)
             window.ipcRenderer.removeListener("close-all-dialogs", closeAllDialogs)
-            window.ipcRenderer.removeListener("trigger-paste", triggerPaste)
         }
     }, [])
 

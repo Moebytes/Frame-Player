@@ -137,7 +137,6 @@
     "@reduxjs/toolkit": "^2.11.2",
     "bootstrap": "^5.3.8",
     "electron-click-drag-plugin": "^2.0.2",
-    "electron-shortcuts": "^0.4.0",
     "electron-store": "^8.0.0",
     "fluent-ffmpeg": "^2.1.3",
     "react": "^18.3.1",
