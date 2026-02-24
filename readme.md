@@ -29,8 +29,6 @@ A simple video player app.
 
 Our design is available here: https://www.figma.com/design/PpYPQAYojONPWedMbDRL8t/Motion-Player 
 
-*New design is wip
-
 ### Installation
 
 Download from [releases](https://github.com/Moebytes/Motion-Player/releases).

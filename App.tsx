@@ -5,7 +5,6 @@ import {Provider} from "react-redux"
 import store, {useActiveSelector, useActiveActions} from "./store"
 import TitleBar from "./components/TitleBar"
 import VideoPlayer from "./components/VideoPlayer"
-import ReverseDialog from "./components/ReverseDialog"
 import ExportDialog from "./components/ExportDialog"
 import LinkDialog from "./components/LinkDialog"
 import FXDialog from "./components/FXDialog"
@@ -25,7 +24,6 @@ const App = () => {
         <LocalStorage/>
         <LinkDialog/>
         <FXDialog/>
-        <ReverseDialog/>
         <ExportDialog/>
         <VideoPlayer/>
     </main>

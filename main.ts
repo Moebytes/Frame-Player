@@ -91,6 +91,14 @@ ipcMain.handle("mov-to-mp4", async (event, videoFile: string) => {
   return savePath
 })
 
+ipcMain.handle("read-buffer", async (event, file: string) => {
+  if (file.startsWith("http")) {
+      const arrayBuffer = await fetch(file).then((r => r.arrayBuffer()))
+      return arrayBuffer
+  }
+  return fs.readFileSync(file)
+})
+
 const containsAudio = async (file: string, ffmpegPath?: string) => {
   let command = `"${ffmpegPath ? ffmpegPath : "ffmpeg"}" -i "${functions.escapeQuotes(file)}"`
   const str = await exec(command).then((s: any) => s.stdout).catch((e: any) => e.stderr)
@@ -205,9 +213,9 @@ ipcMain.handle("export-dialog", async (event, visible: boolean) => {
   window?.webContents.send("show-export-dialog", visible)
 })
 
-ipcMain.handle("reverse-dialog", async (event, visible: boolean) => {
+ipcMain.handle("reverse-dialog", async (event, visible: boolean, type: string) => {
   window?.webContents.send("close-all-dialogs", "reverse")
-  window?.webContents.send("show-reverse-dialog", visible)
+  window?.webContents.send("show-reverse-dialog", visible, type)
 })
 
 ipcMain.handle("get-state", () => {
@@ -240,58 +248,6 @@ ipcMain.handle("extract-subtitles", async (event, videoFile) => {
     }).catch(() => "")
 })
 
-const splitVideo = async (videoFile: string, savePath: string) => {
-  const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-  await new Promise<void>((resolve) => {
-    ffmpeg(path.normalize(videoFile).replaceAll("\\", "/")).outputOptions([...baseFlags, "-acodec", "copy", "-vcodec", "copy", "-f", "segment", "-segment_time", "10", "-reset_timestamps", "1", "-map", "0"])
-        .save(savePath)
-        .on("end", () => {
-            resolve()
-        })
-  })
-  return fs.readdirSync(path.dirname(savePath), {withFileTypes: true}).filter((p) => p.isFile()).map((p) => `${path.dirname(savePath)}/${p.name}`)
-}
-
-const reverseSegments = async (segments: string[], savePath: string) => {
-  const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-  let queue: string[][] = []
-  const total = segments.length
-  while (segments.length) queue.push(segments.splice(0, 2))
-  let counter = 0
-  for (let i = 0; i < queue.length; i++) {
-    window?.webContents.send("reverse-progress", {current: counter, total})
-    await Promise.all(queue[i].map(async (f) => {
-      counter++
-      return new Promise<void>((resolve) => {
-        ffmpeg(path.normalize(f).replaceAll("\\", "/")).outputOptions([...baseFlags, "-vf", "reverse", "-af", "areverse"])
-        .save(`${savePath}/${path.basename(f)}`)
-        .on("end", () => {
-            resolve()
-        })
-      })
-    }))
-  }
-  return fs.readdirSync(savePath, {withFileTypes: true}).filter((p) => p.isFile()).map((p) => `${savePath}/${p.name}`)
-}
-
-const concatSegments = async (segments: string[], savePath: string) => {
-  const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-  const sorted = segments.sort(new Intl.Collator(undefined, {numeric: true, sensitivity: "base"}).compare).reverse()
-  const text = sorted.map((s) => `file '${process.platform === "win32" ? "file:" : ""}${s}'`).join("\n")
-  const textPath = `${path.dirname(savePath)}/list.txt`
-  fs.writeFileSync(textPath, text)
-  await new Promise<void>((resolve) => {
-    ffmpeg(path.normalize(textPath).replaceAll("\\", "/"))
-    .inputOptions(["-f", "concat", "-safe", "0"])
-    .outputOptions([...baseFlags, "-c", "copy"])
-    .save(savePath)
-    .on("end", () => {
-        resolve()
-    })
-  })
-  return savePath
-}
-
 ipcMain.handle("get-reverse-src", async (event, videoFile: string) => {
   const ext = path.extname(videoFile)
   const name = path.basename(videoFile, ext)
@@ -301,18 +257,28 @@ ipcMain.handle("get-reverse-src", async (event, videoFile: string) => {
   return null
 })
 
-ipcMain.handle("reverse-video", async (event, videoFile: string) => {
+ipcMain.handle("reverse-audio", async (event, videoFile: string) => {
     if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
     const ext = path.extname(videoFile)
     const name = path.basename(videoFile, ext)
     const vidDest = path.join(app.getAppPath(), `../assets/videos/`)
     const newDest = path.join(vidDest, `./${name}_reverse${ext}`)
-    if (!fs.existsSync(`${vidDest}/segments/reversed`)) fs.mkdirSync(`${vidDest}/segments/reversed`, {recursive: true})
-    const segments = await splitVideo(videoFile, `${vidDest}/segments/seg%d${ext}`)
-    const reversedSegments = await reverseSegments(segments, `${vidDest}/segments/reversed`)
-    const reverseFile = await concatSegments(reversedSegments, newDest)
-    mainFunctions.removeDirectory(`${vidDest}/segments`)
-    return reverseFile
+
+    if (!fs.existsSync(vidDest)) fs.mkdirSync(vidDest, {recursive: true})
+
+    const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    const flags = ["-map", "0:v", "-c:v", "copy", "-map", "0:a", "-af", "areverse", "-c:a aac"]
+
+    await new Promise<void>((resolve) => {
+      ffmpeg(path.normalize(videoFile).replaceAll("\\", "/"))
+      .outputOptions([...baseFlags, ...flags])
+      .save(newDest)
+      .on("end", () => {
+          resolve()
+      })
+    })
+    
+    return newDest
 })
 
 ipcMain.handle("select-file", async () => {
@@ -387,7 +353,15 @@ ipcMain.handle("context-menu", (event, {hasSelection}) => {
     {label: "Paste", role: "paste"},
     {type: "separator"},
     {label: "Copy Loop", click: () => event.sender.send("copy-loop")},
-    {label: "Paste Loop", click: () => event.sender.send("paste-loop")}
+    {label: "Paste Loop", click: () => event.sender.send("paste-loop")},
+    {type: "separator"},
+    {label: "Clear Cache", click: () => {
+      const videoPath = path.join(app.getAppPath(), `../assets/videos`)
+      const subtitlePath = path.join(app.getAppPath(), `../assets/subtitles`)
+      mainFunctions.removeDirectory(videoPath)
+      mainFunctions.removeDirectory(subtitlePath)
+      event.sender.send("cache-cleared")
+    }}
   ]
 
   const menu = Menu.buildFromTemplate(template)

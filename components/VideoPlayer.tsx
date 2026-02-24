@@ -1,7 +1,7 @@
 import React, {useEffect, useEffectEvent, useRef, useState} from "react"
 import {useActiveSelector, useFilterSelector, usePlaybackSelector, usePlaybackActions} from "../store"
 import Slider from "react-slider"
-import functions from "../structures/functions"
+import functions, {CanvasDrawable} from "../structures/functions"
 import CheckboxIcon from "../assets/svg/checkbox.svg"
 import CheckboxCheckedIcon from "../assets/svg/checkbox-checked.svg"
 import PlayIcon from "../assets/svg/play.svg"
@@ -28,6 +28,11 @@ import "./styles/videoplayer.less"
 const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"]
 const audioExtensions = [".mp3", ".wav", ".ogg"]
 
+let videoID = 0
+let animationID = 0
+let lastTime = 0
+let acc = 0
+
 const VideoPlayer: React.FunctionComponent = () => {
     const {forwardSrc, reverseSrc, subtitleSrc, reverse, speed, preservesPitch,
         duration, prevVolume, volume, paused, subtitles, loop, abloop, loopStart,
@@ -46,8 +51,10 @@ const VideoPlayer: React.FunctionComponent = () => {
     const [hoverBar, setHoverBar] = useState(false)
     const [backFrame, setBackFrame] = useState("")
     const [videoLoaded, setVideoLoaded] = useState(false)
+    const [videoData, setVideoData] = useState(null as ImageBitmap[] | null)
     const [subtitlesLoaded, setSubtitlesLoaded] = useState(false)
     const [subtitleText, setSubtitleText] = useState("")
+    const [processing, setProcessing] = useState(false)
 
     const playerRef = useRef<HTMLDivElement>(null)
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -91,6 +98,10 @@ const VideoPlayer: React.FunctionComponent = () => {
         const triggerDownload = () => {
             download()
         }
+        const cacheCleared = () => {
+            setSubtitleSrc(null)
+            setReverseSrc(null)
+        }
         const onWindowMouseUp = (event: any) => {
             setDragging(false)
             setABDragging(false)
@@ -102,12 +113,14 @@ const VideoPlayer: React.FunctionComponent = () => {
         window.ipcRenderer.on("upload-file", uploadFile)
         window.ipcRenderer.on("open-link", openLink)
         window.ipcRenderer.on("trigger-download", triggerDownload)
+        window.ipcRenderer.on("cache-cleared", cacheCleared)
         return () => {
             window.removeEventListener("mouseup", onWindowMouseUp)
             window.ipcRenderer.removeListener("open-file", openFile)
             window.ipcRenderer.removeListener("upload-file", uploadFile)
             window.ipcRenderer.removeListener("open-link", openLink)
             window.ipcRenderer.removeListener("trigger-download", triggerDownload)
+            window.ipcRenderer.removeListener("cache-cleared", cacheCleared)
         }
     }, [])
 
@@ -196,7 +209,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             videoRef.current!.removeEventListener("timeupdate", timeUpdate)
             videoRef.current!.removeEventListener("ended", onEnd)
         }
-    }, [reverse, dragging, abloop, loopStart, loopEnd])
+    }, [videoData, reverse, dragging, abloop, loopStart, loopEnd])
 
     useEffect(() => {
         /* Precision on shift click */
@@ -294,13 +307,26 @@ const VideoPlayer: React.FunctionComponent = () => {
     }, [abloop])
 
     useEffect(() => {
-        const parseVideo = async () => {
+        const getThumbnail = async () => {
             if (backFrame || !forwardSrc) return 
             const thumb = await functions.videoThumbnail(forwardSrc)
             setBackFrame(thumb)
         }
-        if (videoLoaded) parseVideo()
+        if (videoLoaded) getThumbnail()
     }, [videoLoaded, backFrame, forwardSrc])
+
+    const getFrameData = async () => {
+        let frames = [] as ImageBitmap[]
+        if (functions.isMP4(forwardSrc)) {
+            if (videoData) return
+            frames = await functions.extractMP4Frames(forwardSrc!)
+            if (frames) setVideoData(frames)
+        } else if (functions.isWebM(forwardSrc)) {
+            if (videoData) return
+            frames = await functions.extractWebMFrames(forwardSrc!)
+            if (frames) setVideoData(frames)
+        }
+    }
 
     useEffect(() => {
         const element = filterRef.current
@@ -334,26 +360,73 @@ const VideoPlayer: React.FunctionComponent = () => {
     }, [brightness, contrast, hue, saturation, lightness, blur, sharpen])
 
     useEffect(() => {
-        let id = 0
         if (videoLoaded && videoRef.current) {
             videoRef.current.style.opacity = "0"
-            videoRef.current.playbackRate = speed 
+            const adjustedData = videoData ? functions.videoSpeed(videoData, speed) : null
+            videoRef.current.playbackRate = speed
             const pixelateCanvas = pixelateRef.current
             if (pixelateCanvas) pixelateCanvas.style.opacity = "1"
             const pixelateCtx = pixelateCanvas?.getContext("2d")
             const sharpenOverlay = sharpnessRef.current
             let sharpenCtx = sharpenOverlay?.getContext("2d")
             const lightnessCanvas = lightnessRef.current
-            let frame = videoRef.current
+            let video = videoRef.current
+            const duration = video.duration
+            let frame = videoRef.current as CanvasDrawable
+            let pos = 0
+            let frames = adjustedData ? adjustedData.length - 1 : 1
+            let interval = duration / frames
+            let fps = 0
+            if (adjustedData) {
+                fps = adjustedData.length / video.duration
+                let sp = seekTo !== null ? seekTo : progress
+                pos = Math.floor(sp / interval)
+                if (!adjustedData[pos]) pos = 0
+                frame = adjustedData[pos]
+            }
+
+            let loopStartFrame = 0
+            let loopEndFrame = adjustedData ? adjustedData.length - 1 : 1
+
+            if (abloop) {
+                const start = (duration / 100) * loopStart
+                const end = (duration / 100) * loopEnd
+
+                loopStartFrame = Math.floor(start / interval)
+                loopEndFrame = Math.floor(end / interval)
+
+                if (loopStartFrame < 0) loopStartFrame = 0
+                if (loopEndFrame > frames) loopEndFrame = frames
+            }
+
+            const update = () => {
+                if (adjustedData) {
+                    if (reverse) {
+                        pos--
+                    } else {
+                        pos++
+                    }
+                    
+                    if (abloop) {
+                        if (pos < loopStartFrame) pos = loopEndFrame
+                        if (pos > loopEndFrame) pos = loopStartFrame
+                    } else {
+                        if (pos < 0) pos = frames
+                        if (pos > frames) pos = 0
+                    }
+                    
+                    frame = adjustedData[pos]
+                }
+            }
 
             const draw = () => {
-                if (frame && sharpenOverlay && pixelateCanvas && lightnessCanvas) {
-                    const landscape = frame.videoWidth > frame.videoHeight
+                if (video && sharpenOverlay && pixelateCanvas && lightnessCanvas) {
+                    const landscape = video.videoWidth > video.videoHeight
                     if (landscape) {
-                        const aspectRatio = frame.videoWidth / frame.videoHeight
-                        const width = frame.clientWidth
-                        const height = Math.floor(frame.clientWidth / aspectRatio)
-                        const margin = Math.floor((frame.clientHeight - (width / aspectRatio)) / 4)
+                        const aspectRatio = video.videoWidth / video.videoHeight
+                        const width = video.clientWidth
+                        const height = Math.floor(video.clientWidth / aspectRatio)
+                        const margin = Math.floor((video.clientHeight - (width / aspectRatio)) / 4)
                         sharpenOverlay.width = width
                         sharpenOverlay.height = height
                         pixelateCanvas.width = width
@@ -367,10 +440,10 @@ const VideoPlayer: React.FunctionComponent = () => {
                         sharpenOverlay.style.marginLeft = "0px"
                         lightnessCanvas.style.marginLeft = "0px"
                     } else {
-                        const aspectRatio = frame.videoHeight / frame.videoWidth
-                        const width = Math.floor(frame.clientHeight / aspectRatio)
-                        const height = frame.clientHeight
-                        const margin = Math.floor((videoRef.current!.clientWidth - (height / aspectRatio)) / 2)
+                        const aspectRatio = video.videoHeight / video.videoWidth
+                        const width = Math.floor(video.clientHeight / aspectRatio)
+                        const height = video.clientHeight
+                        const margin = Math.floor((video.clientWidth - (height / aspectRatio)) / 2)
                         sharpenOverlay.height = height
                         sharpenOverlay.width = width
                         pixelateCanvas.height = height
@@ -423,17 +496,43 @@ const VideoPlayer: React.FunctionComponent = () => {
                     }
                 }
             }
+            
+            const animateFPS = (time: number) => {
+                if (paused) return
 
-            const videoLoop = async () => {
+                if (!lastTime) lastTime = time
+                const delta = time - lastTime
+                lastTime = time
+
+                acc += delta
+
+                if (acc >= (1000 / fps)) {
+                    update()
+                    acc -= (1000 / fps)
+                }
                 draw()
-                id = videoRef.current?.requestVideoFrameCallback(videoLoop) ?? 0
+                animationID = requestAnimationFrame(animateFPS)
             }
-            videoLoop()
+
+            const animateVideo = async () => {
+                if (paused) return
+                update()
+                draw()
+                videoID = videoRef.current?.requestVideoFrameCallback(animateVideo) ?? 0
+            }
+
+            if (fps > 0) {
+                animationID = window.requestAnimationFrame(animateFPS)
+            } else {
+                videoID = videoRef.current?.requestVideoFrameCallback(animateVideo)
+            }
         }
         return () => {
-            videoRef.current?.cancelVideoFrameCallback(id)
+            videoRef.current?.cancelVideoFrameCallback(videoID)
+            window.cancelAnimationFrame(animationID)
         }
-    }, [videoLoaded, sharpen, pixelate, lightness, speed])
+    }, [videoLoaded, videoData, reverse, speed, sharpen, lightness, 
+        pixelate, paused, seekTo, abloop, loopStart, loopEnd])
 
     const resizeOverlay = () => {
         const sharpenCanvas = sharpnessRef.current
@@ -517,6 +616,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         videoRef.current!.currentTime = 0
         videoRef.current!.play()
         setForwardSrc(file)
+        setVideoData(null)
         setReverseSrc(null)
         setReverse(false)
         setPaused(false)
@@ -531,9 +631,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             }
         })
         window.ipcRenderer.invoke("get-reverse-src", file).then((reverseSrc) => {
-            if (reverseSrc) {
-                setReverseSrc(reverseSrc)
-            }
+            if (reverseSrc) setReverseSrc(reverseSrc)
         })
     })
 
@@ -548,30 +646,22 @@ const VideoPlayer: React.FunctionComponent = () => {
     }
 
     const updateReverse = useEffectEvent(async () => {
-        if (!reverseSrc) {
-            videoRef.current?.pause()
-            setPaused(true)
-            window.ipcRenderer.invoke("reverse-dialog", true)
-            await new Promise<void>((resolve) => {
-                window.ipcRenderer.invoke("reverse-video", forwardSrc).then((reversed) => {
-                    window.ipcRenderer.invoke("reverse-dialog", false)
-                    let percent = videoRef.current!.currentTime / videoRef.current!.duration
-                    const newTime = (1-percent) * videoRef.current!.duration
-                    videoRef.current!.src = reversed
-                    videoRef.current!.currentTime = newTime
-                    videoRef.current!.play()
-                    refreshState()
-                    setReverseSrc(reversed)
-                    setReverse(true)
-                    setPaused(false)
-                    resolve()
-                })
-            })
-            return
+        if (processing) return
+        setProcessing(true)
+        let reverseSource = reverseSrc ?? ""
+        if (!videoData) {
+            await getFrameData()
         }
+        if (!reverseSource) {
+            const reversed = await window.ipcRenderer.invoke("reverse-audio", forwardSrc)
+            setReverseSrc(reversed)
+            reverseSource = reversed
+        }
+        setProcessing(false)
         if (reverse) {
             let percent = videoRef.current!.currentTime / videoRef.current!.duration
             const newTime = (1-percent) * videoRef.current!.duration
+            setVideoLoaded(false)
             videoRef.current!.src = forwardSrc ?? ""
             videoRef.current!.currentTime = newTime
             videoRef.current!.play()
@@ -580,13 +670,13 @@ const VideoPlayer: React.FunctionComponent = () => {
         } else {
             let percent = videoRef.current!.currentTime / videoRef.current!.duration
             const newTime = (1-percent) * videoRef.current!.duration
-            videoRef.current!.src = reverseSrc
+            setVideoLoaded(false)
+            videoRef.current!.src = reverseSource
             videoRef.current!.currentTime = newTime
             videoRef.current!.play()
             refreshState()
             setReverse(true)
         }
-        setPaused(false)
     })
 
     const updateSpeed = (value?: number | string) => {
@@ -610,6 +700,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         videoRef.current!.currentTime = progress
         setProgress(progress)
         setDragging(false)
+        setSeekTo(progress)
     }
 
     const updateVolume = (value: number) => {
@@ -662,6 +753,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         setABDragging(false)
         setStepFlag(true)
         setDragProgress(0)
+        setVideoLoaded(false)
         videoRef.current!.playbackRate = 1
         videoRef.current!.preservesPitch = true
         videoRef.current!.src = forwardSrc ?? ""
@@ -708,6 +800,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         if (newTime > videoRef.current!.duration) newTime = videoRef.current!.duration
         videoRef.current!.currentTime = newTime
         setProgress(newTime)
+        setSeekTo(newTime)
     }
 
     const fastforward = (value?: number) => {
@@ -717,6 +810,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         if (newTime > videoRef.current!.duration) newTime = videoRef.current!.duration
         videoRef.current!.currentTime = newTime
         setProgress(newTime)
+        setSeekTo(newTime)
     }
 
     const next = async () => {
@@ -818,7 +912,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                     <img className="video-lightness-overlay" ref={lightnessRef} src={backFrame}/>
                     <canvas className="video-sharpen-overlay" ref={sharpnessRef}></canvas>
                     <canvas className="video-pixelate-canvas" ref={pixelateRef}></canvas>
-                    <video className="video" ref={videoRef} style={audio ? {display: "none"} : {display: "flex"}} onLoadedData={() => setVideoLoaded(true)}>
+                    <video className="video" ref={videoRef} style={audio ? {display: "none"} : {display: "flex"}} onLoadedMetadata={() => setVideoLoaded(true)}>
                         <track kind="subtitles" src={subtitleSrc ?? ""}></track>
                     </video>
                 </div>

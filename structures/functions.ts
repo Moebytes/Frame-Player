@@ -1,6 +1,125 @@
 import path from "path"
+import MP4Demuxer from "./MP4Demuxer"
+// @ts-ignore
+import {JsWebm} from "jswebm"
 
+export type CanvasDrawable =
+    | HTMLCanvasElement 
+    | HTMLImageElement 
+    | HTMLVideoElement 
+    | ImageBitmap
+    
 export default class Functions {
+    public static extractMP4Frames = async (videoFile: string) => {
+        let frames = [] as ImageBitmap[]
+        await new Promise<void>(async (resolve) => {
+            let demuxer = new MP4Demuxer(videoFile)
+            let timeout = null as any
+            let decoder = new VideoDecoder({
+                output: async (frame: VideoFrame) => {
+                    clearTimeout(timeout)
+                    const bitmap = await createImageBitmap(frame)
+                    frames.push(bitmap)
+                    frame.close()
+                    timeout = setTimeout(() => {
+                        resolve()
+                    }, 500)
+                },
+                error: (e: any) => console.error(e)
+            })
+            const config = await demuxer.getConfig()
+            decoder.configure(config)
+            demuxer.start((chunk: EncodedVideoChunk) => decoder.decode(chunk))
+        })
+        return Promise.all(frames)
+    }
+
+    public static extractWebMFrames = async (videoFile: string, vp9?: boolean) => {
+        const videoBuffer = await window.ipcRenderer.invoke("read-buffer", videoFile)
+        let frames = [] as ImageBitmap[]
+        await new Promise<void>(async (resolve) => {
+            let demuxer = new JsWebm()
+            demuxer.queueData(videoBuffer)
+            let timeout = null as any
+            let decoder = new VideoDecoder({
+                output: async (frame: VideoFrame) => {
+                    clearTimeout(timeout)
+                    const bitmap = await createImageBitmap(frame)
+                    frames.push(bitmap)
+                    frame.close()
+                    timeout = setTimeout(() => {
+                        resolve()
+                    }, 500)
+                },
+                error: (e: any) => console.error(e)
+            })
+            while (!demuxer.eof) {
+                demuxer.demux()
+            }
+            decoder.configure({
+                codec: vp9 ? "vp09.00.10.08" : "vp8",
+                codedWidth: demuxer.videoTrack.width,
+                codedHeight: demuxer.videoTrack.height,
+                displayAspectWidth: demuxer.videoTrack.width,
+                displayAspectHeight: demuxer.videoTrack.height,
+                colorSpace: {
+                    primaries: "bt709",
+                    transfer: "bt709",
+                    matrix: "rgb"
+                },
+                hardwareAcceleration: "no-preference",
+                optimizeForLatency: true
+            })
+            let foundKeyframe = false
+            for (let i = 0; i < demuxer.videoPackets.length; i++) {
+                const packet = demuxer.videoPackets[i]
+                if (packet.isKeyframe) foundKeyframe = true 
+                if (!foundKeyframe) continue
+                const chunk = new EncodedVideoChunk({type: packet.isKeyframe ? "key" : "delta", 
+                data: packet.data, timestamp: packet.timestamp * demuxer.segmentInfo.timecodeScale / 1000})
+                decoder.decode(chunk)
+            }
+        })
+        return Promise.all(frames)
+    }
+
+    public static videoSpeed = (data: ImageBitmap[], speed: number) => {
+        if (speed === 1) return data 
+        const constraint = speed > 1 ? data.length / speed : data.length
+        let step = Math.ceil(data.length / constraint)
+        let newData = [] as ImageBitmap[] 
+        for (let i = 0; i < data.length; i += step) {
+            const frame = data[i]
+            newData.push(frame)
+            if (speed < 1) {
+                const amount = (1 / speed) - 1 
+                for (let i = 0; i < amount; i++) {
+                    newData.push(frame)
+                }
+            }
+        }
+        return newData
+    }
+
+    public static videoThumbnail = async (link: string) => {
+        return new Promise<string>((resolve) => {
+            const video = document.createElement("video")
+            video.src = link
+            video.addEventListener("loadedmetadata", (event) => {
+                video.currentTime = video.duration / 2
+            })
+            video.addEventListener("seeked", () => {
+                const canvas = document.createElement("canvas")
+                const ctx = canvas.getContext("2d")!
+                canvas.width = video.videoWidth
+                canvas.height = video.videoHeight
+                ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+                resolve(canvas.toDataURL())
+            })
+            video.load()
+        })
+    }
+
     public static arrayIncludes = (str: string, arr: string[]) => {
         for (let i = 0; i < arr.length; i++) {
             if (str.includes(arr[i])) return true
@@ -135,26 +254,29 @@ export default class Functions {
         return {width: Math.floor(newWidth), height: Math.floor(newHeight)}
     }
 
-    public static videoThumbnail = (link: string) => {
-        return new Promise<string>((resolve) => {
-            const video = document.createElement("video")
-            video.src = link 
-            video.addEventListener("loadeddata", (event) => {
-                video.currentTime = 0.001
-            })
-            video.addEventListener("seeked", () => {
-                const canvas = document.createElement("canvas")
-                const ctx = canvas.getContext("2d") as any
-                canvas.width = video.videoWidth 
-                canvas.height = video.videoHeight
-                ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
-                resolve(canvas.toDataURL())
-            })
-            video.load()
-        })
-    }
-
     public static escapeQuotes = (str: string) => {
         return str.replace(/"/g, `"\\""`).replace(/'/g, `'\\''`)
+    }
+
+    public static isMP4 = (file?: string | null) => {
+        if (!file) return false
+        file = file.replace(/\?.*$/, "")
+        if (file?.startsWith("blob:")) {
+            const ext = file.split("#")?.[1] || ""
+            return ext === ".mp4"
+        }
+        const ext = file.startsWith(".") ? file : path.extname(file)
+        return ext === ".mp4"
+    }
+
+    public static isWebM = (file?: string | null) => {
+        if (!file) return false
+        file = file.replace(/\?.*$/, "")
+        if (file?.startsWith("blob:")) {
+            const ext = file.split("#")?.[1] || ""
+            return ext === ".webm"
+        }
+        const ext = file.startsWith(".") ? file : path.extname(file)
+        return ext === ".webm"
     }
 }
