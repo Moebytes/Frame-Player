@@ -21,11 +21,11 @@ const playbackSlice = createSlice({
         loopStart: 0,
         loopEnd: 100,
         savedLoop: [0, 100],
-        previousVolume: 0,
         progress: 0,
         secondsProgress: 0,
         seekTo: null as number | null,
         dragging: false,
+        abDragging: false,
         dragProgress: 0,
         audio: false
     },
@@ -46,11 +46,11 @@ const playbackSlice = createSlice({
         setLoopStart: (state, action) => {state.loopStart = action.payload},
         setLoopEnd: (state, action) => {state.loopEnd = action.payload},
         setSavedLoop: (state, action) => {state.savedLoop = action.payload},
-        setPreviousVolume: (state, action) => {state.previousVolume = action.payload},
         setProgress: (state, action) => {state.progress = action.payload},
         setSecondsProgress: (state, action) => {state.secondsProgress = action.payload},
         setSeekTo: (state, action) => {state.seekTo = action.payload},
         setDragging: (state, action) => {state.dragging = action.payload},
+        setABDragging: (state, action) => {state.abDragging = action.payload},
         setDragProgress: (state, action) => {state.dragProgress = action.payload},
         setAudio: (state, action) => {state.audio = action.payload}
     }
@@ -60,9 +60,9 @@ const {
     setForwardSrc, setReverseSrc, setSubtitleSrc, setReverse,
     setSpeed, setPreservesPitch, setDuration, setPrevVolume,
     setVolume, setPaused, setSubtitles, setLoop, setABLoop,
-    setLoopStart, setLoopEnd, setSavedLoop, setPreviousVolume,
+    setLoopStart, setLoopEnd, setSavedLoop, setAudio,
     setProgress, setSecondsProgress, setSeekTo, setDragging,
-    setDragProgress, setAudio
+    setDragProgress, setABDragging
 } = playbackSlice.actions
 
 export const usePlaybackSelector = () => {
@@ -84,11 +84,11 @@ export const usePlaybackSelector = () => {
         loopStart: selector((state) => state.playback.loopStart),
         loopEnd: selector((state) => state.playback.loopEnd),
         savedLoop: selector((state) => state.playback.savedLoop),
-        previousVolume: selector((state) => state.playback.previousVolume),
         progress: selector((state) => state.playback.progress),
         secondsProgress: selector((state) => state.playback.secondsProgress),
         seekTo: selector((state) => state.playback.seekTo),
         dragging: selector((state) => state.playback.dragging),
+        abDragging: selector((state) => state.playback.abDragging),
         dragProgress: selector((state) => state.playback.dragProgress),
         audio: selector((state) => state.playback.audio)
     }
@@ -113,11 +113,11 @@ export const usePlaybackActions = () => {
         setLoopStart: (state: number) => dispatch(setLoopStart(state)),
         setLoopEnd: (state: number) => dispatch(setLoopEnd(state)),
         setSavedLoop: (state: number[]) => dispatch(setSavedLoop(state)),
-        setPreviousVolume: (state: number) => dispatch(setPreviousVolume(state)),
         setProgress: (state: number) => dispatch(setProgress(state)),
         setSecondsProgress: (state: number) => dispatch(setSecondsProgress(state)),
         setSeekTo: (state: number | null) => dispatch(setSeekTo(state)),
         setDragging: (state: boolean) => dispatch(setDragging(state)),
+        setABDragging: (state: boolean) => dispatch(setABDragging(state)),
         setDragProgress: (state: number) => dispatch(setDragProgress(state)),
         setAudio: (state: boolean) => dispatch(setAudio(state))
     }

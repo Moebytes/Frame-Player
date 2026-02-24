@@ -46,10 +46,9 @@
 .control-title {
     font-family: "GenEi M Gothic v2", sans-serif;
     font-size: 4.2vw;
-    user-select: text;
-    cursor: text;
     color: white;
-    text-shadow: 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black;
+    -webkit-text-stroke: 2px black;
+    paint-order: stroke fill;
 }
 
 .video-controls {
@@ -81,23 +80,30 @@
 .control-text {
     font-family: "GenEi M Gothic v2", sans-serif;
     font-size: 2.5vw;
-    user-select: text;
-    cursor: text;
     color: white;
-    text-shadow: 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black;
+    -webkit-text-stroke: 2px black;
+    paint-order: stroke fill;
 }
 
 .control-button {
-    width: 30px;
+    width: auto;
+    height: 30px;
     margin-left: 13px;
+    color: var(--iconColor);
+}
+
+.active-button {
+    color: var(--activeColor);
 }
 
 .rewind-button {
-    width: 25px;
+    width: auto;
+    height: 20px;
 }
 
 .play-button {
-    width: 40px;
+    width: auto;
+    height: 50px;
 }
 
 .progress-container {
@@ -152,13 +158,13 @@
 
 .ab-slider-thumb-0 {
     .ab-slider-thumb();
-    content: url("../../assets/svg/a-button.svg");
+    content: url("../../assets/icons/a-button.png");
     background-color: transparent;
 }
 
 .ab-slider-thumb-1 {
     .ab-slider-thumb();
-    content: url("../../assets/svg/b-button.svg");
+    content: url("../../assets/icons/b-button.png");
     background-color: transparent;
 }
 
@@ -190,10 +196,6 @@
     width: 1.5rem;
     &:active {
         box-shadow: none;
-        filter: hue-rotate(60deg) // invert(1) hue-rotate(180deg) brightness(80%);
-    }
-    &:hover {
-        filter: hue-rotate(60deg) // invert(1) hue-rotate(180deg) brightness(80%);
     }
     &:focus {
         outline: none;
@@ -228,27 +230,17 @@
     margin-top: -5px;
     &:active {
         box-shadow: none;
-        filter: hue-rotate(60deg) brightness(130%);
-    }
-    &:hover {
-        filter: hue-rotate(60deg) brightness(130%);
     }
     &:focus {
         outline: none;
     }
 }
 
-.speed-bar {
-    filter: hue-rotate(50deg) brightness(120%);
-}
-
 .speed-checkbox {
     margin-left: 0.5rem;
-    filter: hue-rotate(50deg) brightness(120%);
 }
 
 .speed-text {
-    cursor: text;
     color: white;
     font-family: "GenEi M Gothic v2", sans-serif;
     font-size: 1rem;
@@ -282,7 +274,8 @@ video::-webkit-media-text-track-display {
     font-family: "GenEi M Gothic v2", sans-serif;
     font-size: 35px;
     color: var(--subtitleColor);
-    text-shadow: 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black,0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black,0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black,0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black;
+    -webkit-text-stroke: 2px black;
+    paint-order: stroke fill;
 }
 
 video::-webkit-media-text-track-container {
@@ -323,7 +316,9 @@ video::-webkit-media-text-track-container {
 }
 
 .bar-button {
-    width: 35px;
+    width: auto;
+    height: 35px;
+    color: var(--iconColor);
 }
 
 .video-filters {
@@ -397,10 +392,9 @@ video::-webkit-media-text-track-container {
 }
 
 .video-subtitles {
-    user-select: text;
-    cursor: text;
     font-family: "GenEi M Gothic v2", sans-serif;
     font-size: 30px;
     color: var(--subtitleColor);
-    text-shadow: 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black,0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black, 0 0 2px black;
+    -webkit-text-stroke: 2px black;
+    paint-order: stroke fill;
 }
