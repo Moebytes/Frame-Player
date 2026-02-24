@@ -1,4 +1,4 @@
-import {app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, globalShortcut, ipcMain, shell} from "electron"
+import {app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, ipcMain, shell} from "electron"
 import Store from "electron-store"
 import dragAddon from "electron-click-drag-plugin"
 import util from "util"
@@ -56,6 +56,10 @@ ipcMain.on("moveWindow", (event) => {
   dragAddon.startDrag(windowID)
 })
 
+ipcMain.handle("app:getPath", (event, path: string) => {
+  return app.getPath(path as any)
+})
+
 const parseResolution = async (file: string, ffmpegPath?: string) => {
   let command = `"${ffmpegPath ? ffmpegPath : "ffmpeg"}" -i "${functions.escapeQuotes(file)}"`
   const str = await exec(command).then((s: any) => s.stdout).catch((e: any) => e.stderr)
@@ -85,38 +89,49 @@ ipcMain.handle("mov-to-mp4", async (event, videoFile: string) => {
     })
   })
   return savePath
-}) 
+})
+
+const containsAudio = async (file: string, ffmpegPath?: string) => {
+  let command = `"${ffmpegPath ? ffmpegPath : "ffmpeg"}" -i "${functions.escapeQuotes(file)}"`
+  const str = await exec(command).then((s: any) => s.stdout).catch((e: any) => e.stderr)
+  return /Stream #.*Audio:/i.test(str)
+}
 
 ipcMain.handle("export-video", async (event, videoFile: string, savePath: string, options: any) => {
   let {reverse, speed, preservesPitch, abloop, loopStart, loopEnd, duration} = options
   if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
+  const audio = await containsAudio(videoFile, ffmpegPath)
+
   const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
   let audioSpeed = preservesPitch ? `atempo=${speed}` : `asetrate=44100*${speed},aresample=44100`
-  let filter = ["-filter_complex", `[0:v]setpts=${1.0/speed}*PTS${reverse ? ",reverse": ""}[v];[0:a]${audioSpeed}${reverse ? ",areverse" : ""}[a]`, "-map", "[v]", "-map", "[a]"]
+
+  const videoBlock = `[0:v]setpts=${1.0/speed}*PTS${reverse ? ",reverse": ""}[v]`
+  let audioBlock =`[0:a]${audioSpeed}${reverse ? ",areverse" : ""}[a]`
+
+  let audioFilter = ["-filter_complex", `${videoBlock};${audioBlock}`, "-map", "[v]",  "-map", "[a]"]
+  let noAudioFilter = ["-filter_complex", `${videoBlock}`, "-map", "[v]"]
+  let filter = audio ? audioFilter : noAudioFilter
+
   let segment = [] as string[]
   duration /= speed
   if (abloop) {
     const start = reverse ? (duration / 100) * (100 - loopStart) : (duration / 100) * loopStart
     const end = reverse ? (duration / 100) * (100 - loopEnd) : (duration / 100) * loopEnd
-    segment = ["-ss", `${reverse ? functions.formatSeconds(end) : functions.formatSeconds(start)}`, "-to", `${reverse ? functions.formatSeconds(start) : functions.formatSeconds(end)}`]
+    segment = ["-ss", `${reverse ? functions.formatSeconds(end) : functions.formatSeconds(start)}`, 
+      "-to", `${reverse ? functions.formatSeconds(start) : functions.formatSeconds(end)}`]
     duration = reverse ? start - end : end - start
   }
-  const tempDir = `${path.dirname(savePath)}/temp`
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, {recursive: true})
-  const tempDest = `${tempDir}/temp${path.extname(savePath)}`
-  await new Promise<void>((resolve) => {
+
+  await new Promise<void>((resolve, reject) => {
     ffmpeg(path.normalize(videoFile).replaceAll("\\", "/"))
     .outputOptions([...baseFlags, ...segment, ...filter])
-    .save(tempDest)
-    .on("end", () => {
-        resolve()
-    })
+    .save(savePath)
+    .on("end", () => resolve())
+    .on("error", () => reject())
     .on("progress", (progress) => {
       window?.webContents.send("export-progress", {...progress, duration})
     })
   })
-  fs.renameSync(tempDest, savePath)
-  mainFunctions.removeDirectory(tempDir)
   shell.showItemInFolder(savePath)
 })
 
@@ -333,6 +348,14 @@ ipcMain.handle("get-transparent", () => {
 
 ipcMain.handle("save-transparent", (event, transparent: boolean) => {
   store.set("transparent", transparent)
+})
+
+ipcMain.handle("get-vid-drag", () => {
+  return store.get("vid-drag", true)
+})
+
+ipcMain.handle("save-vid-drag", (event, videoDrag: string) => {
+  store.set("vid-drag", videoDrag)
 })
 
 ipcMain.handle("get-opened-file", () => {

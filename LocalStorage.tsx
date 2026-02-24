@@ -1,12 +1,13 @@
 import React, {useEffect} from "react"
-import {useThemeSelector, useThemeActions} from "./store"
+import {useThemeSelector, useThemeActions, useActiveSelector,
+useActiveActions} from "./store"
 import {Themes, OS} from "./reducers/themeReducer"
 
 const lightColorList = {
 	"--closeButton": "#582eff",
 	"--minimizeButton": "#8139ff",
 	"--maximizeButton": "#b349ff",
-	"--textColor": "#ffffff",
+	"--textColor": "#000000",
 	"--textStrokeColor": "#000000",
 	"--barColor": "#ffffff",
 	"--iconColor": "#983dff",
@@ -31,6 +32,8 @@ const darkColorList = {
 const LocalStorage: React.FunctionComponent = () => {
     const {theme, os, transparent} = useThemeSelector()
     const {setTheme, setOS, setTransparent} = useThemeActions()
+    const {videoDrag} = useActiveSelector()
+    const {setVideoDrag} = useActiveActions()
 
     useEffect(() => {
         if (typeof window === "undefined") return
@@ -83,6 +86,18 @@ const LocalStorage: React.FunctionComponent = () => {
     useEffect(() => {
         window.ipcRenderer.invoke("save-transparent", transparent)
     }, [transparent])
+
+    useEffect(() => {
+        const initVideoDrag = async () => {
+            const savedDrag = await window.ipcRenderer.invoke("get-vid-drag")
+            if (savedDrag) setVideoDrag(Boolean(savedDrag))
+        }
+        initVideoDrag()
+    }, [])
+
+    useEffect(() => {
+        window.ipcRenderer.invoke("save-vid-drag", videoDrag)
+    }, [videoDrag])
 
     return null
 }

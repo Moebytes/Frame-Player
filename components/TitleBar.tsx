@@ -1,5 +1,5 @@
 import React, {useState} from "react"
-import {useActiveSelector, useThemeSelector, useThemeActions} from "../store"
+import {useActiveSelector, useActiveActions, useThemeSelector, useThemeActions} from "../store"
 import CircleIcon from "../assets/svg/circle.svg"
 import CircleCloseIcon from "../assets/svg/circle-close.svg"
 import CircleMinimizeIcon from "../assets/svg/circle-minimize.svg"
@@ -12,6 +12,8 @@ import UploadIcon from "../assets/svg/upload.svg"
 import DownloadIcon from "../assets/svg/download.svg"
 import SearchIcon from "../assets/svg/search.svg"
 import FXIcon from "../assets/svg/fx.svg"
+import VideoDragIcon from "../assets/svg/vid-drag.svg"
+import VideoPanIcon from "../assets/svg/vid-pan.svg"
 import TransparentIcon from "../assets/svg/transparent.svg"
 import LightIcon from "../assets/svg/light.svg"
 import DarkIcon from "../assets/svg/dark.svg"
@@ -20,7 +22,8 @@ import MacIcon from "../assets/svg/mac.svg"
 import "./styles/titlebar.less"
 
 const TitleBar: React.FunctionComponent = () => {
-    const {hover} = useActiveSelector()
+    const {hover, videoDrag} = useActiveSelector()
+    const {setVideoDrag} = useActiveActions()
     const {theme, os, transparent} = useThemeSelector()
     const {setTheme, setOS, setTransparent} = useThemeActions()
     const [iconHover, setIconHover] = useState(false)
@@ -58,6 +61,10 @@ const TitleBar: React.FunctionComponent = () => {
         window.ipcRenderer.invoke("show-fx-dialog")
     }
 
+    const drag = () => {
+        setVideoDrag(!videoDrag)
+    }
+
     const switchTheme = () => {
         setTheme(theme === "light" ? "dark" : "light")
     }
@@ -93,6 +100,9 @@ const TitleBar: React.FunctionComponent = () => {
                     <DownloadIcon className="title-bar-button" onClick={download}/>
                     <SearchIcon className="title-bar-button" onClick={search}/>
                     <FXIcon className="title-bar-button" onClick={fx}/>
+                    {videoDrag ?
+                    <VideoDragIcon className="title-bar-button" onClick={drag}/> :
+                    <VideoPanIcon className="title-bar-button" onClick={drag}/>}
                     <TransparentIcon className="title-bar-button" onClick={switchTransparency}/>
                     {theme === "light" ?
                     <LightIcon className="title-bar-button" onClick={switchTheme}/> :
@@ -116,6 +126,9 @@ const TitleBar: React.FunctionComponent = () => {
                     <DownloadIcon className="title-bar-button" onClick={download}/>
                     <SearchIcon className="title-bar-button" onClick={search}/>
                     <FXIcon className="title-bar-button" onClick={fx}/>
+                    {videoDrag ?
+                    <VideoDragIcon className="title-bar-button" onClick={drag}/> :
+                    <VideoPanIcon className="title-bar-button" onClick={drag}/>}
                     <TransparentIcon className="title-bar-button" onClick={switchTransparency}/>
                     {theme === "light" ?
                     <LightIcon className="title-bar-button" onClick={switchTheme}/> :

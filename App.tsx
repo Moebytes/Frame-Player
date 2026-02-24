@@ -2,7 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import React from "react"
 import {createRoot} from "react-dom/client"
 import {Provider} from "react-redux"
-import store, {useActiveActions} from "./store"
+import store, {useActiveSelector, useActiveActions} from "./store"
 import TitleBar from "./components/TitleBar"
 import VideoPlayer from "./components/VideoPlayer"
 import ReverseDialog from "./components/ReverseDialog"
@@ -15,10 +15,11 @@ import "./index.less"
 
 
 const App = () => {
+  const {fxDialogActive} = useActiveSelector()
   const {setHover} = useActiveActions()
   
   return (
-    <main className="app" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <main className="app" onMouseEnter={() => setHover(true)} onMouseLeave={() => !fxDialogActive && setHover(false)}>
         <TitleBar/>
         <ContextMenu/>
         <LocalStorage/>

@@ -14,7 +14,7 @@ declare global {
       removeListener: (channel: string, listener: (...args: any[]) => void) => void
     },
     app: {
-      getPath: (location: SystemPath) => string
+      getPath: (location: SystemPath) => Promise<string>
     }
   }
 }
@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
 })
 
 contextBridge.exposeInMainWorld("app", {
-    getPath: (location: SystemPath) => app.getPath(location)
+    getPath: async (location: SystemPath) => ipcRenderer.invoke("app:getPath", location)
 })
 
 contextBridge.exposeInMainWorld("platform", process.platform === "darwin" ? "mac" : "windows")

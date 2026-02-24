@@ -1,5 +1,5 @@
 import React, {useEffect, useEffectEvent, useRef, useState} from "react"
-import {useFilterSelector, usePlaybackSelector, usePlaybackActions} from "../store"
+import {useActiveSelector, useFilterSelector, usePlaybackSelector, usePlaybackActions} from "../store"
 import Slider from "react-slider"
 import functions from "../structures/functions"
 import CheckboxIcon from "../assets/svg/checkbox.svg"
@@ -40,6 +40,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         setAudio, setABDragging
     } = usePlaybackActions()
     const {brightness, contrast, hue, saturation, lightness, blur, sharpen, pixelate} = useFilterSelector()
+    const {videoDrag} = useActiveSelector()
     const [showSpeedPopup, setShowSpeedPopup] = useState(false)
     const [hover, setHover] = useState(false)
     const [hoverBar, setHoverBar] = useState(false)
@@ -74,10 +75,10 @@ const VideoPlayer: React.FunctionComponent = () => {
         }
         const openLink = async (event: any, link: string) => {
             if (link) {
-                let video = link
+                let video = link.replace(/\?.*$/, "")
                 if (link.includes("youtube.com") || link.includes("youtu.be")) {
                     video = await window.ipcRenderer.invoke("download-yt-video", link)
-                }
+                } 
                 upload(video)
             }
         }
@@ -628,7 +629,6 @@ const VideoPlayer: React.FunctionComponent = () => {
         setPreservesPitch(true)
         setDuration(0)
         setPaused(false)
-        setLoop(false)
         setABLoop(false)
         setLoopStart(0)
         setLoopEnd(100)
@@ -713,7 +713,8 @@ const VideoPlayer: React.FunctionComponent = () => {
         let defaultPath = forwardSrc ?? ""
         if (defaultPath.startsWith("http")) {
             let name = path.basename(defaultPath)
-            defaultPath = `${window.app.getPath("downloads")}/${name}`
+            const downloadsFolder = await window.app.getPath("downloads")
+            defaultPath = `${downloadsFolder}/${name}`
         }
         let savePath = await window.ipcRenderer.invoke("save-dialog", defaultPath)
         if (!savePath) return
@@ -721,7 +722,8 @@ const VideoPlayer: React.FunctionComponent = () => {
         videoRef.current?.pause()
         setPaused(true)
         window.ipcRenderer.invoke("export-dialog", true)
-        await window.ipcRenderer.invoke("export-video", forwardSrc, savePath, {reverse: reverse, speed: speed, preservesPitch: preservesPitch, abloop: abloop, loopStart: loopStart, loopEnd: loopEnd, duration: videoRef.current!.duration})
+        await window.ipcRenderer.invoke("export-video", forwardSrc, savePath, {reverse, speed, preservesPitch, 
+            abloop, loopStart, loopEnd, duration: videoRef.current!.duration})
         window.ipcRenderer.invoke("export-dialog", false)
         videoRef.current!.load()
         videoRef.current!.play()
@@ -764,6 +766,11 @@ const VideoPlayer: React.FunctionComponent = () => {
         }
     }
 
+    const handleVideoDrag = () => {
+        if (!videoDrag) return
+        window.ipcRenderer.send("moveWindow")
+    }
+
     const {getRootProps} = useDropzone({onDrop})
 
     return (
@@ -776,7 +783,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                     <NextIcon className="bar-button" onClick={() => next()}/>
                 </div>
                 {audio ? <img className="audio-placeholder" src={placeholder}/> : null}
-                <div className="video-filters" ref={filterRef}>
+                <div className="video-filters" ref={filterRef} onMouseDown={handleVideoDrag}>
                     <img className="video-lightness-overlay" ref={lightnessRef} src={backFrame}/>
                     <canvas className="video-sharpen-overlay" ref={sharpnessRef}></canvas>
                     <canvas className="video-pixelate-canvas" ref={pixelateRef}></canvas>
@@ -821,7 +828,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                             </div>
                         </div> : null}
                         <SpeedIcon className={`control-button ${speed !== 1 && "active-button"}`} ref={speedImg} onClick={() => speedPopup.current!.style.display === "flex" ? speedPopup.current!.style.display = "none" : speedPopup.current!.style.display = "flex"}/>
-                        <LoopIcon className={`control-button ${loop || abloop && "active-button"}`} onClick={() => updateLoop()}/>
+                        <LoopIcon className={`control-button ${(loop || abloop) && "active-button"}`} onClick={() => updateLoop()}/>
                         <ABLoopIcon className={`control-button ${abloop && "active-button"}`} onClick={() => toggleAB()}/>
                         <ResetIcon className="control-button" onClick={() => reset()}/>
                         <RewindIcon className="control-button rewind-button" onClick={() => rewind()}/>
