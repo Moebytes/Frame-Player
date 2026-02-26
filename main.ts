@@ -1,4 +1,5 @@
 import {app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, ipcMain, shell} from "electron"
+import localShortcut from "electron-localshortcut"
 import Store from "electron-store"
 import dragAddon from "electron-click-drag-plugin"
 import util from "util"
@@ -304,7 +305,7 @@ ipcMain.handle("save-theme", (event, theme: string) => {
 })
 
 ipcMain.handle("get-os", () => {
-  return store.get("os", "mac")
+  return store.get("os", process.platform === "darwin" ? "mac" : "windows")
 })
 
 ipcMain.handle("save-os", (event, os: string) => {
@@ -461,14 +462,17 @@ if (!singleLock) {
   })
 
   app.on("ready", () => {
-    window = new BrowserWindow({width: 900, height: 650, minWidth: 520, minHeight: 250, transparent: true, hasShadow: false, 
-      frame: false, show: false, backgroundColor: "#00000000", center: true, webPreferences: {
+    window = new BrowserWindow({width: 900, height: 650, minWidth: 520, minHeight: 250, transparent: process.platform !== "win32", hasShadow: false, 
+      frame: false, show: false, resizable: true, backgroundColor: "#00000000", center: true, webPreferences: {
       preload: path.join(__dirname, "../preload/index.js")}})
     window.loadFile(path.join(__dirname, "../renderer/index.html"))
     applicationMenu()
     window.removeMenu()
     openFile()
     if (ffmpegPath && process.platform === "darwin") fs.chmodSync(ffmpegPath, "777")
+    localShortcut.register(window, "Control+Shift+I", () => {
+      window?.webContents.openDevTools()
+    })
     window.webContents.on("did-finish-load", () => {
       window?.show()
     })
