@@ -1,6 +1,5 @@
 import React, {useState} from "react"
-import {useActiveSelector, useActiveActions, useThemeSelector, useThemeActions,
-usePlaybackSelector, usePlaybackActions} from "../store"
+import {useActiveSelector, useActiveActions, useThemeSelector, useThemeActions} from "../store"
 import CircleIcon from "../assets/svg/circle.svg"
 import CircleCloseIcon from "../assets/svg/circle-close.svg"
 import CircleMinimizeIcon from "../assets/svg/circle-minimize.svg"
@@ -28,8 +27,6 @@ const TitleBar: React.FunctionComponent = () => {
     const {setVideoDrag} = useActiveActions()
     const {theme, os, transparent, pinned} = useThemeSelector()
     const {setTheme, setOS, setTransparent, setPinned} = useThemeActions()
-    const {subtitles, subtitleColor} = usePlaybackSelector()
-    const {setSubtitleColor} = usePlaybackActions()
     const [iconHover, setIconHover] = useState(false)
 
     const onMouseDown = () => {
@@ -117,10 +114,6 @@ const TitleBar: React.FunctionComponent = () => {
                     <LightIcon className="title-bar-button" onClick={switchTheme}/> :
                     <DarkIcon className="title-bar-button" onClick={switchTheme}/>}
                     <MacIcon className="title-bar-button" onClick={switchOSStyle}/>
-
-                    {subtitles ? <>
-                    <input type="color" className="subtitle-color-box" onChange={(event) => setSubtitleColor(event.target.value)} value={subtitleColor}></input>
-                    </> : null}
                 </div>
             </div>
         )
@@ -148,10 +141,6 @@ const TitleBar: React.FunctionComponent = () => {
                     <LightIcon className="title-bar-button" onClick={switchTheme}/> :
                     <DarkIcon className="title-bar-button" onClick={switchTheme}/>}
                     <WindowsIcon className="title-bar-button" onClick={switchOSStyle}/>
-
-                    {subtitles ? <>
-                    <input type="color" className="subtitle-color-box" onChange={(event) => setSubtitleColor(event.target.value)} value={subtitleColor}></input>
-                    </> : null}
                 </div>
             </div>
             <div className="title-group-container">

@@ -35,16 +35,18 @@ const VideoPlayer: React.FunctionComponent = () => {
     const {forwardSrc, reverseSrc, subtitleSrc, reverse, speed, preservesPitch,
         duration, prevVolume, volume, paused, subtitles, loop, abloop, loopStart,
         loopEnd, savedLoop, progress, secondsProgress, seekTo, abDragging,
-        dragging, dragProgress, stepFlag, subtitleColor
+        dragging, dragProgress, stepFlag, subtitleColor, outlineThickness, outlineColor,
+        subtitleSize
     } = usePlaybackSelector()
     const {setForwardSrc, setReverseSrc, setSubtitleSrc, setReverse, setSpeed, setPreservesPitch,
         setDuration, setPrevVolume, setVolume, setPaused, setSubtitles, setLoop, setABLoop, setLoopStart,
         setLoopEnd, setSavedLoop, setProgress, setSecondsProgress, setSeekTo, setDragging, setDragProgress,
-        setABDragging, setStepFlag, setSubtitleColor
+        setABDragging, setStepFlag, setSubtitleColor, setOutlineThickness, setOutlineColor, setSubtitleSize
     } = usePlaybackActions()
     const {brightness, contrast, hue, saturation, lightness, blur, sharpen, pixelate} = useFilterSelector()
     const {videoDrag} = useActiveSelector()
     const [showSpeedPopup, setShowSpeedPopup] = useState(false)
+    const [showSubtitlePopup, setShowSubtitlePopup] = useState(false)
     const [hover, setHover] = useState(false)
     const [hoverBar, setHoverBar] = useState(false)
     const [backFrame, setBackFrame] = useState("")
@@ -58,6 +60,8 @@ const VideoPlayer: React.FunctionComponent = () => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const speedPopup = useRef<HTMLDivElement>(null)
     const speedIcon = useRef<HTMLDivElement>(null)
+    const subtitlePopup = useRef<HTMLDivElement>(null)
+    const subtitleIcon = useRef<HTMLDivElement>(null)
     const filterRef = useRef<HTMLDivElement>(null)
     const lightnessRef = useRef<HTMLImageElement>(null)
     const sharpnessRef = useRef<HTMLCanvasElement>(null)
@@ -137,13 +141,18 @@ const VideoPlayer: React.FunctionComponent = () => {
                 && !speedPopup.current?.contains(target)) {
                 setShowSpeedPopup(false)
             }
+            
+            if (showSubtitlePopup && !subtitleIcon.current?.contains(target)
+                && !subtitlePopup.current?.contains(target)) {
+                setShowSubtitlePopup(false)
+            }
         }
 
         window.addEventListener("mousedown", onWindowClick)
         return () => {
             window.removeEventListener("mousedown", onWindowClick)
         }
-    }, [showSpeedPopup])
+    }, [showSpeedPopup, showSubtitlePopup])
 
     const initState = async () => {
         const saved = await window.ipcRenderer.invoke("get-state")
@@ -155,12 +164,25 @@ const VideoPlayer: React.FunctionComponent = () => {
             setPreservesPitch(Boolean(saved.preservesPitch))
             videoRef.current!.preservesPitch = Boolean(saved.preservesPitch)
         }
+        if (saved.volume !== undefined) {
+            setVolume(Number(saved.volume))
+            videoRef.current!.volume = Number(saved.volume)
+        }
         if (saved.loop !== undefined) {
             setLoop(Boolean(saved.loop))
             videoRef.current!.loop = Boolean(saved.loop)
         }
         if (saved.subtitleColor !== undefined) {
             setSubtitleColor(saved.subtitleColor)
+        }
+        if (saved.subtitleSize !== undefined) {
+            setSubtitleSize(Number(saved.subtitleSize))
+        }
+        if (saved.outlineColor !== undefined) {
+            setOutlineColor(saved.outlineColor)
+        }
+        if (saved.outlineThickness !== undefined) {
+            setOutlineThickness(Number(saved.outlineThickness))
         }
     }
 
@@ -567,6 +589,18 @@ const VideoPlayer: React.FunctionComponent = () => {
     useEffect(() => {
         document.documentElement.style.setProperty("--subtitleColor", subtitleColor)
     }, [subtitleColor])
+    
+    useEffect(() => {
+        document.documentElement.style.setProperty("--subtitleSize", `${subtitleSize}px`)
+    }, [subtitleSize])
+
+    useEffect(() => {
+        document.documentElement.style.setProperty("--outlineColor", outlineColor)
+    }, [outlineColor])
+
+    useEffect(() => {
+        document.documentElement.style.setProperty("--outlineThickness", `${outlineThickness}px`)
+    }, [outlineThickness])
 
     const refreshState = useEffectEvent(() => {
         updateSpeed(speed)
@@ -575,8 +609,10 @@ const VideoPlayer: React.FunctionComponent = () => {
     })
 
     useEffect(() => {
-        window.ipcRenderer.invoke("save-state", {reverse, speed, preservesPitch, loop, abloop, loopStart, loopEnd, subtitleColor})
-    }, [reverse, speed, preservesPitch, loop, abloop, loopStart, loopEnd, subtitleColor])
+        window.ipcRenderer.invoke("save-state", {reverse, speed, preservesPitch, loop, abloop, 
+        volume, loopStart, loopEnd, subtitleColor, subtitleSize, outlineColor, outlineThickness})
+    }, [reverse, speed, preservesPitch, loop, abloop, loopStart, volume,
+        loopEnd, subtitleColor, outlineColor, subtitleSize, outlineThickness])
 
     const upload = useEffectEvent(async (file?: string) => {
         if (!file) file = await window.ipcRenderer.invoke("select-file")
@@ -741,10 +777,6 @@ const VideoPlayer: React.FunctionComponent = () => {
         videoRef.current!.play()
     }
 
-    const updateSubtitles = () => {
-        setSubtitles(!subtitles)
-    }
-
     const updateABloop = (value: number[]) => {
         const loopStart = value[0]
         const loopEnd = value[1]
@@ -873,11 +905,19 @@ const VideoPlayer: React.FunctionComponent = () => {
         }
     }
 
-    const togglePopup = (popup: "speed" | "pitch") => {
+    const togglePopup = (popup: "speed" | "subtitle") => {
         if (popup === "speed") {
+            setShowSubtitlePopup(false)
             setShowSpeedPopup((prev) => !prev)
+        } else if (popup === "subtitle") {
+            setShowSpeedPopup(false)
+            setShowSubtitlePopup((prev) => !prev)
         }
     }
+
+    const subtitleBottom = hover
+        ? 70 + subtitleSize * 0.8
+        : 30 + subtitleSize * 0.3
 
     const {getRootProps} = useDropzone({onDrop})
 
@@ -902,7 +942,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                     <p className="control-title">{getName()}</p>
                 </div>
                 {subtitles ?
-                <div className="video-subtitle-container" style={{bottom: hover ? "100px" : "20px"}}>
+                <div className="video-subtitle-container" style={{bottom: `${subtitleBottom}px`}}>
                     <p className="video-subtitles">{subtitleText}</p>
                 </div> 
                 : null}
@@ -922,18 +962,18 @@ const VideoPlayer: React.FunctionComponent = () => {
                     </div>
                     <div className="control-row">
                         <ReverseIcon className={`control-button ${reverse && "active-button"}`} onClick={() => updateReverse()}/>
-                        {showSpeedPopup ? <div className="speed-popup-container" ref={speedPopup}>
+                        {showSpeedPopup ? <div className="popup-container" ref={speedPopup}>
                             <div className="speed-popup">
-                                <div className="speed-popup-inner-container">
-                                    <Slider className="speed-slider" trackClassName="speed-slider-track" thumbClassName="speed-slider-handle" ref={speedBar} 
+                                <div className="popup-row">
+                                    <Slider className="popup-slider" trackClassName="popup-slider-track" thumbClassName="popup-slider-handle" ref={speedBar} 
                                     min={0.5} max={4} step={stepFlag ? 0.5 : 0.1} value={speed} onChange={(value: number) => setSpeed(value)}/>
-                                    <span className="speed-popup-text">{speed.toFixed(1)}x</span>
+                                    <span className="popup-text">{speed.toFixed(1)}x</span>
                                 </div>
-                                <div className="speed-popup-inner-container">
-                                    <span className="speed-popup-text">Pitch?</span>
+                                <div className="popup-row">
+                                    <span className="popup-text">Pitch?</span>
                                     {!preservesPitch ?
-                                    <CheckboxCheckedIcon className="speed-checkbox" onClick={() => updatePreservesPitch()}/> :
-                                    <CheckboxIcon className="speed-checkbox" onClick={() => updatePreservesPitch()}/>}
+                                    <CheckboxCheckedIcon className="popup-checkbox" onClick={() => updatePreservesPitch()}/> :
+                                    <CheckboxIcon className="popup-checkbox" onClick={() => updatePreservesPitch()}/>}
                                 </div>
                             </div>
                         </div> : null}
@@ -946,7 +986,37 @@ const VideoPlayer: React.FunctionComponent = () => {
                         <PlayIcon className="control-button play-button" onClick={() => play()}/> :
                         <PauseIcon className="control-button play-button" onClick={() => play()}/>}
                         <FastForwardIcon className="control-button rewind-button" onClick={() => fastforward()}/>
-                        <SubIcon className={`control-button ${subtitles && "active-button"}`}  onClick={() => updateSubtitles()}/>
+                        {showSubtitlePopup ? <div className="popup-container" ref={subtitlePopup}>
+                            <div className="subtitle-popup">
+                                <div className="popup-row">
+                                    <span className="popup-text">Enabled</span>
+                                    {subtitles ?
+                                    <CheckboxCheckedIcon className="popup-checkbox" onClick={() => setSubtitles(!subtitles)}/> :
+                                    <CheckboxIcon className="popup-checkbox" onClick={() => setSubtitles(!subtitles)}/>}
+                                </div>
+                                <div className="popup-row">
+                                    <span className="popup-text">Subtitle Color</span>
+                                    <input type="color" className="popup-color-box" onChange={(event) => setSubtitleColor(event.target.value)} value={subtitleColor}></input>
+                                </div>
+                                <div className="popup-row">
+                                    <span className="popup-text">Subtitle Size</span>
+                                    <Slider className="popup-mini-slider" trackClassName="popup-mini-slider-track"
+                                    thumbClassName="popup-mini-slider-handle" onChange={(value: number) => setSubtitleSize(value)} 
+                                    min={20} max={70} step={1} value={subtitleSize}/>
+                                </div>
+                                <div className="popup-row">
+                                    <span className="popup-text">Outline Color</span>
+                                    <input type="color" className="popup-color-box" onChange={(event) => setOutlineColor(event.target.value)} value={outlineColor}></input>
+                                </div>
+                                <div className="popup-row">
+                                    <span className="popup-text">Outline Size</span>
+                                    <Slider className="popup-mini-slider" trackClassName="popup-mini-slider-track"
+                                    thumbClassName="popup-mini-slider-handle" onChange={(value: number) => setOutlineThickness(value)} 
+                                    min={0} max={10} step={0.1} value={outlineThickness}/>
+                                </div>
+                            </div>
+                        </div> : null}
+                        <SubIcon className={`control-button ${subtitles && "active-button"}`} ref={subtitleIcon} onClick={() => togglePopup("subtitle")}/>
                         <FullscreenIcon className={`control-button ${document.fullscreenElement && "active-button"}`} onClick={() => fullscreen()}/>
                         {volume <= 0.01 ?
                         <VolumeMuteIcon className="control-button" onClick={() => mute()}/> :

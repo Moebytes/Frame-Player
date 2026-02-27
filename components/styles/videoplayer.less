@@ -233,7 +233,7 @@
     }
 }
 
-.speed-slider {
+.popup-slider {
     margin-left: 7px;
     width: 100%;
     border-radius: 0.2;
@@ -242,19 +242,19 @@
     margin-bottom: 13px;
 }
 
-.speed-slider-track-0 {
+.popup-slider-track-0 {
     height: 0.4rem;
     background-color: var(--iconColor);
     border-radius: 0.2;
 }
 
-.speed-slider-track-1 {
+.popup-slider-track-1 {
     height: 0.4rem;
     background-color: var(--barColor);
     border-radius: 0.2;
 }
 
-.speed-slider-handle {
+.popup-slider-handle {
     background-color: var(--iconColor);
     border-radius: 50%;
     border: none;
@@ -269,7 +269,43 @@
     }
 }
 
-.speed-checkbox {
+.popup-mini-slider {
+    width: 30%;
+    border-radius: 0.1rem;
+    align-items: center;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+}
+
+.popup-mini-slider-track-0 {
+    height: 0.3rem;
+    background-color: var(--iconColor);
+    border-radius: 0.1rem;
+}
+
+.popup-mini-slider-track-1 {
+    height: 0.3rem;
+    background-color: var(--barColor);
+    border-radius: 0.1rem;
+}
+
+.popup-mini-slider-handle {
+    background-color: var(--iconColor);
+    border-radius: 0;
+    border: none;
+    height: 0.5rem;
+    width: 0.5rem;
+    margin-top: -2px;
+    &:active {
+        box-shadow: none;
+    }
+    &:focus {
+        outline: none;
+    }
+}
+
+.popup-checkbox {
     margin-left: 0.5rem;
     width: 15px;
     height: 15px;
@@ -279,7 +315,7 @@
     color: var(--iconColor);
 }
 
-.speed-popup-container {
+.popup-container {
     position: relative;
 }
 
@@ -297,7 +333,7 @@
     gap: 0.8rem;
 }
 
-.speed-popup-inner-container {
+.popup-row {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -305,11 +341,31 @@
     width: 100%;
 }
 
-.speed-popup-text {
+.popup-text {
     color: var(--textColor);
     font-family: "GenEi M Gothic v2", sans-serif;
     font-size: 1rem;
-    width: 40px;
+    white-space: nowrap;
+}
+
+.subtitle-popup {
+    position: absolute;
+    bottom: 1.5rem;
+    left: -3.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 200px;
+    background-color: var(--navColor);
+    border-radius: 0.6rem;
+    padding: 0.7rem 0.7rem;
+    gap: 0.8rem;
+}
+
+.popup-color-box {
+    border: none !important;
+    width: 16px;
+    height: 16px;
 }
 
 video::cue {
@@ -319,9 +375,9 @@ video::cue {
 video::-webkit-media-text-track-display {
     z-index: 1000;
     font-family: "Honoka Shin Antique-Kaku", sans-serif;
-    font-size: 35px;
+    font-size: var(--subtitleSize);
     color: var(--subtitleColor);
-    -webkit-text-stroke: 2px black;
+    -webkit-text-stroke: var(--outlineThickness) var(--outlineColor);
     paint-order: stroke fill;
 }
 
@@ -424,9 +480,9 @@ video::-webkit-media-text-track-container {
 
 .video-subtitles {
     font-family: "Honoka Shin Antique-Kaku", sans-serif;
-    font-size: 30px;
+    font-size: var(--subtitleSize);
     color: var(--subtitleColor);
-    -webkit-text-stroke: 2px black;
+    -webkit-text-stroke: var(--outlineThickness) var(--outlineColor);
     paint-order: stroke fill;
 }
 

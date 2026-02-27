@@ -17,6 +17,9 @@ const playbackSlice = createSlice({
         paused: false,
         subtitles: false,
         subtitleColor: "#ffffff",
+        subtitleSize: 30,
+        outlineColor: "#000000",
+        outlineThickness: 2,
         loop: false,
         abloop: false,
         loopStart: 0,
@@ -43,6 +46,9 @@ const playbackSlice = createSlice({
         setPaused: (state, action) => {state.paused = action.payload},
         setSubtitles: (state, action) => {state.subtitles = action.payload},
         setSubtitleColor: (state, action) => {state.subtitleColor = action.payload},
+        setSubtitleSize: (state, action) => {state.subtitleSize = action.payload},
+        setOutlineColor: (state, action) => {state.outlineColor = action.payload},
+        setOutlineThickness: (state, action) => {state.outlineThickness = action.payload},
         setLoop: (state, action) => {state.loop = action.payload},
         setABLoop: (state, action) => {state.abloop = action.payload},
         setLoopStart: (state, action) => {state.loopStart = action.payload},
@@ -62,9 +68,10 @@ const {
     setForwardSrc, setReverseSrc, setSubtitleSrc, setReverse,
     setSpeed, setPreservesPitch, setDuration, setPrevVolume,
     setVolume, setPaused, setSubtitles, setLoop, setABLoop,
-    setLoopStart, setLoopEnd, setSavedLoop, 
+    setLoopStart, setLoopEnd, setSavedLoop, setOutlineThickness,
     setProgress, setSecondsProgress, setSeekTo, setDragging,
-    setDragProgress, setABDragging, setStepFlag, setSubtitleColor
+    setDragProgress, setABDragging, setStepFlag, setSubtitleColor,
+    setOutlineColor, setSubtitleSize
 } = playbackSlice.actions
 
 export const usePlaybackSelector = () => {
@@ -82,6 +89,9 @@ export const usePlaybackSelector = () => {
         paused: selector((state) => state.playback.paused),
         subtitles: selector((state) => state.playback.subtitles),
         subtitleColor: selector((state) => state.playback.subtitleColor),
+        subtitleSize: selector((state) => state.playback.subtitleSize),
+        outlineColor: selector((state) => state.playback.outlineColor),
+        outlineThickness: selector((state) => state.playback.outlineThickness),
         loop: selector((state) => state.playback.loop),
         abloop: selector((state) => state.playback.abloop),
         loopStart: selector((state) => state.playback.loopStart),
@@ -112,6 +122,9 @@ export const usePlaybackActions = () => {
         setPaused: (state: boolean) => dispatch(setPaused(state)),
         setSubtitles: (state: boolean) => dispatch(setSubtitles(state)),
         setSubtitleColor: (state: string) => dispatch(setSubtitleColor(state)),
+        setSubtitleSize: (state: number) => dispatch(setSubtitleSize(state)),
+        setOutlineColor: (state: string) => dispatch(setOutlineColor(state)),
+        setOutlineThickness: (state: number) => dispatch(setOutlineThickness(state)),
         setLoop: (state: boolean) => dispatch(setLoop(state)),
         setABLoop: (state: boolean) => dispatch(setABLoop(state)),
         setLoopStart: (state: number) => dispatch(setLoopStart(state)),
