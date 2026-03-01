@@ -79,6 +79,9 @@ ipcMain.handle("app:getPath", (event, path: string) => {
 })
 
 ipcMain.handle("resize-window", async (event, dim: {width: number, height: number}) => {
+  const keepUnlocked = store.get("keep-ratio-unlocked", false)
+  if (keepUnlocked) return window?.setAspectRatio(0)
+
   const {width, height} = functions.constrainDimensions(dim.width, dim.height)
   window?.setAspectRatio(width / height)
   window?.setSize(width, height, true)
@@ -190,9 +193,10 @@ ipcMain.handle("trigger-download", async (event, link: string) => {
 ipcMain.handle("download-yt-video", async (event, url: string) => {
   const name = await youtube.util.getTitle(url)
   const savePath = path.join(app.getPath("documents"), `Motion Player/videos/${name}.mp4`)
+  if (fs.existsSync(savePath)) return savePath
 
   let args = [
-    `--js-runtimes node:"${mainFunctions.getNodePath()}"`, `--ffmpeg-location "${ffmpegPath ?? "ffmpeg"}"`,
+    "--js-runtimes", `node:${mainFunctions.getNodePath()}`, "--ffmpeg-location", ffmpegPath ?? "ffmpeg",
     "-t", "mp4", url, "-o", savePath
   ]
   const str = await mainFunctions.spawn(ytdlPath ?? "yt-dlp", args)
@@ -370,30 +374,32 @@ ipcMain.handle("extract-audio-track", async (event, videoFile: string, streamInd
     }).catch((err) => console.log(err))
 })
 
-ipcMain.handle("get-reverse-src", async (event, videoFile: string) => {
+ipcMain.handle("get-reverse-src", async (event, videoFile: string, index: number) => {
   const ext = path.extname(videoFile)
   const name = path.basename(videoFile, ext)
   const vidDest = path.join(app.getPath("documents"), `Motion Player/audio`)
-  const newDest = path.join(vidDest, `./${name}_reverse${ext}`)
+  const newDest = path.join(vidDest, `./${name}_reverse${index}${ext}`)
   if (fs.existsSync(newDest)) return newDest
   return null
 })
 
-ipcMain.handle("reverse-audio", async (event, videoFile: string) => {
+ipcMain.handle("reverse-audio-track", async (event, videoFile: string, index: number) => {
     if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
     const ext = path.extname(videoFile)
     const name = path.basename(videoFile, ext)
     const vidDest = path.join(app.getPath("documents"), `Motion Player/audio`)
     if (!fs.existsSync(vidDest)) fs.mkdirSync(vidDest, {recursive: true})
 
-    const newDest = path.join(vidDest, `./${name}_reverse${ext}`)
-
-    const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-    const flags = ["-map", "0:v", "-c:v", "copy", "-map", "0:a", "-af", "areverse", "-c:a aac"]
+    const newDest = path.join(vidDest, `./${name}_reverse${index}${ext}`)
+    if (fs.existsSync(newDest)) return newDest
 
     await new Promise<void>((resolve) => {
       ffmpeg(path.normalize(videoFile).replaceAll("\\", "/"))
-      .outputOptions([...baseFlags, ...flags])
+      .outputOptions([
+        "-af", "areverse",
+        "-c:v copy",
+        "-c:a aac" 
+      ])
       .save(newDest)
       .on("end", () => {
           resolve()
@@ -484,6 +490,14 @@ ipcMain.handle("context-menu", (event, {hasSelection}) => {
     {type: "separator"},
     {label: "Lock Aspect Ratio", click: () => event.sender.send("trigger-resize")},
     {label: "Unlock Aspect Ratio", click: () => window?.setAspectRatio(0)},
+    {label: "Keep Ratio Unlocked", type: "checkbox",
+      checked: store.get("keep-ratio-unlocked", false) as boolean,
+      click: (menuItem) => {
+        store.set("keep-ratio-unlocked", menuItem.checked)
+        if (menuItem.checked) window?.setAspectRatio(0)
+    }},
+    {type: "separator"},
+    {label: "Toggle Fullscreen", click: () => event.sender.send("toggle-fullscreen")},
     {type: "separator"},
     {label: "Copy Loop", click: () => event.sender.send("copy-loop")},
     {label: "Paste Loop", click: () => event.sender.send("paste-loop")},
@@ -573,7 +587,19 @@ const applicationMenu = () =>  {
           click: (item, window) => {
             const win = window as BrowserWindow
             win.setAspectRatio(0)
-        }}
+        }},
+        {label: "Keep Ratio Unlocked", type: "checkbox",
+          checked: store.get("keep-ratio-unlocked", false) as boolean,
+          click: (menuItem) => {
+            store.set("keep-ratio-unlocked", menuItem.checked)
+            if (menuItem.checked) window?.setAspectRatio(0)
+        }},
+        {type: "separator"},
+        {label: "Toggle Fullscreen",
+          click: (item, window) => {
+            const win = window as BrowserWindow
+            win?.webContents.send("toggle-fullscreen")
+        }},
       ]
     },
     {label: "Chapter", submenu: chapterSubmenu},

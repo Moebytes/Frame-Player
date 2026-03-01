@@ -33,7 +33,7 @@ let videoID = 0
 let animationID = 0
 let lastTime = 0
 let acc = 0
-let changedAudio = false
+let skipLoad = false
 
 const VideoPlayer: React.FunctionComponent = () => {
     const {originalSrc, forwardSrc, reverseSrc, subtitleSrc, reverse, speed, preservesPitch,
@@ -144,6 +144,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         window.ipcRenderer.on("open-link", openLink)
         window.ipcRenderer.on("trigger-download", triggerDownload)
         window.ipcRenderer.on("trigger-resize", triggerResize)
+        window.ipcRenderer.on("toggle-fullscreen", fullscreen)
         window.ipcRenderer.on("cache-cleared", cacheCleared)
         window.ipcRenderer.on("select-chapter", selectChapter)
         window.ipcRenderer.on("select-audio-track", selectAudioTrack)
@@ -155,6 +156,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             window.ipcRenderer.removeListener("open-link", openLink)
             window.ipcRenderer.removeListener("trigger-download", triggerDownload)
             window.ipcRenderer.removeListener("trigger-resize", triggerResize)
+            window.ipcRenderer.removeListener("toggle-fullscreen", fullscreen)
             window.ipcRenderer.removeListener("cache-cleared", cacheCleared)
             window.ipcRenderer.removeListener("select-chapter", selectChapter)
             window.ipcRenderer.removeListener("select-audio-track", selectAudioTrack)
@@ -537,8 +539,6 @@ const VideoPlayer: React.FunctionComponent = () => {
             }
             
             const animateFPS = (time: number) => {
-                if (paused) return
-
                 if (!lastTime) lastTime = time
                 const delta = time - lastTime
                 lastTime = time
@@ -550,13 +550,14 @@ const VideoPlayer: React.FunctionComponent = () => {
                     acc -= (1000 / fps)
                 }
                 draw()
+                if (paused) return
                 animationID = requestAnimationFrame(animateFPS)
             }
 
             const animateVideo = async () => {
-                if (paused) return
                 update()
                 draw()
+                if (paused) return
                 videoID = videoRef.current?.requestVideoFrameCallback(animateVideo) ?? 0
             }
 
@@ -681,25 +682,13 @@ const VideoPlayer: React.FunctionComponent = () => {
         setSubtitleText("")
         setPaused(false)
         refreshState()
-        window.ipcRenderer.invoke("extract-subtitle-track", file, 0).then((subtitles) => {
-            if (subtitles) {
-                setSubtitles(true)
-                setSubtitleSrc(subtitles)
-                setSubtitlesLoaded(true)
-            } else {
-                setSubtitles(false)
-            }
-        })
-        window.ipcRenderer.invoke("get-reverse-src", file).then((reverseSrc) => {
-            if (reverseSrc) setReverseSrc(reverseSrc)
-        })
     })
 
     const onLoaded = async () => {
         setVideoLoaded(true)
 
-        if (changedAudio) {
-            changedAudio = false
+        if (skipLoad) {
+            skipLoad = false
             return
         }
 
@@ -723,6 +712,19 @@ const VideoPlayer: React.FunctionComponent = () => {
         if (audioTracks.length) setCurrentAudioTrack(audioTracks[0])
         if (subtitleTracks.length) setCurrentSubtitleTrack(subtitleTracks[0])
         if (chapters.length) setCurrentChapter(chapters[0])
+
+        
+        const subtitles = await window.ipcRenderer.invoke("extract-subtitle-track", originalSrc, 0)
+        if (subtitles) {
+            setSubtitles(true)
+            setSubtitleSrc(subtitles)
+            setSubtitlesLoaded(true)
+        } else {
+            setSubtitles(false)
+        }
+
+        const reverseSrc = await window.ipcRenderer.invoke("get-reverse-src", originalSrc, 0)
+        if (reverseSrc) setReverseSrc(reverseSrc)
     }
 
     const play = () => {
@@ -740,10 +742,14 @@ const VideoPlayer: React.FunctionComponent = () => {
         setProcessing(true)
         let reverseSource = reverseSrc ?? ""
         if (!videoData) {
-            await getFrameData()
+            try {
+                await getFrameData()
+            } catch {
+                return setProcessing(false)
+            }
         }
         if (!reverseSource) {
-            const reversed = await window.ipcRenderer.invoke("reverse-audio", forwardSrc).catch(() => null)
+            const reversed = await window.ipcRenderer.invoke("reverse-audio-track", forwardSrc, currentAudioTrack?.index ?? 0).catch(() => null)
             if (!reversed) return setProcessing(false)
             setReverseSrc(reversed)
             reverseSource = reversed
@@ -753,6 +759,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             let percent = videoRef.current!.currentTime / videoRef.current!.duration
             const newTime = (1-percent) * videoRef.current!.duration
             setVideoLoaded(false)
+            skipLoad = true
             videoRef.current!.src = forwardSrc ?? ""
             videoRef.current!.currentTime = newTime
             videoRef.current!.play()
@@ -762,6 +769,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             let percent = videoRef.current!.currentTime / videoRef.current!.duration
             const newTime = (1-percent) * videoRef.current!.duration
             setVideoLoaded(false)
+            skipLoad = true
             videoRef.current!.src = reverseSource
             videoRef.current!.currentTime = newTime
             videoRef.current!.play()
@@ -999,7 +1007,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             await window.ipcRenderer.invoke("extract-audio-track", originalSrc, track.index).catch(() => null)
         if (!newSrc) return setProcessing(false)
 
-        changedAudio = true
+        skipLoad = true
         setVideoLoaded(false)
         setForwardSrc(newSrc)
         setReverseSrc(null)
