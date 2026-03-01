@@ -8,6 +8,11 @@ import path from "path"
 import MP4Demuxer from "./MP4Demuxer"
 // @ts-ignore
 import {JsWebm} from "jswebm"
+import fileType from "magic-bytes.js"
+import JSZip from "jszip"
+import GifEncoder from "gif-encoder"
+// @ts-ignore
+import pixels from "image-pixels"
 
 export interface VideoTrack {
     index: number
@@ -29,10 +34,22 @@ export type CanvasDrawable =
     | HTMLImageElement 
     | HTMLVideoElement 
     | ImageBitmap
+
+export interface BitmapFrame {
+    frame: ImageBitmap
+}
+
+export interface AnimationFrame {
+    frame: HTMLCanvasElement
+    delay: number
+}
+
+const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"]
+const animationExtensions = [".gif", ".webp", ".apng", ".png"]
     
 export default class Functions {
     public static extractMP4Frames = async (videoFile: string) => {
-        let frames = [] as ImageBitmap[]
+        let frames = [] as BitmapFrame[]
         await new Promise<void>(async (resolve) => {
             let demuxer = new MP4Demuxer(videoFile)
             let timeout = null as any
@@ -40,7 +57,7 @@ export default class Functions {
                 output: async (frame: VideoFrame) => {
                     clearTimeout(timeout)
                     const bitmap = await createImageBitmap(frame)
-                    frames.push(bitmap)
+                    frames.push({frame: bitmap})
                     frame.close()
                     timeout = setTimeout(() => {
                         resolve()
@@ -57,7 +74,7 @@ export default class Functions {
 
     public static extractWebMFrames = async (videoFile: string, vp9?: boolean) => {
         const videoBuffer = await window.ipcRenderer.invoke("read-buffer", videoFile)
-        let frames = [] as ImageBitmap[]
+        let frames = [] as BitmapFrame[]
         await new Promise<void>(async (resolve) => {
             let demuxer = new JsWebm()
             demuxer.queueData(videoBuffer)
@@ -66,7 +83,7 @@ export default class Functions {
                 output: async (frame: VideoFrame) => {
                     clearTimeout(timeout)
                     const bitmap = await createImageBitmap(frame)
-                    frames.push(bitmap)
+                    frames.push({frame: bitmap})
                     frame.close()
                     timeout = setTimeout(() => {
                         resolve()
@@ -104,11 +121,11 @@ export default class Functions {
         return Promise.all(frames)
     }
 
-    public static videoSpeed = (data: ImageBitmap[], speed: number) => {
+    public static videoSpeed = (data: BitmapFrame[], speed: number) => {
         if (speed === 1) return data 
         const constraint = speed > 1 ? data.length / speed : data.length
         let step = Math.ceil(data.length / constraint)
-        let newData = [] as ImageBitmap[] 
+        let newData = [] as BitmapFrame[] 
         for (let i = 0; i < data.length; i += step) {
             const frame = data[i]
             newData.push(frame)
@@ -139,6 +156,112 @@ export default class Functions {
             })
             video.load()
         })
+    }
+
+    public static extractAnimationFrames = async (data: ArrayBuffer, format = "gif") => {
+        let index = 0
+        let imageDecoder = new ImageDecoder({data, type: `image/${format}`, preferAnimation: true})
+        let result = [] as AnimationFrame[]
+        while (true) {
+            try {
+                const decoded = await imageDecoder.decode({frameIndex: index++})
+                const canvas = document.createElement("canvas")
+                canvas.width = decoded.image.codedWidth
+                canvas.height = decoded.image.codedHeight
+                const canvasContext = canvas.getContext("2d")!
+                const image = await createImageBitmap(decoded.image)
+                canvasContext.drawImage(image, 0, 0)
+                const duration = decoded.image.duration || 0
+                result.push({frame: canvas, delay: duration / 1000.0})
+            } catch {
+                break
+            }
+        }
+
+        return result
+    }
+
+    public static extractUgoiraFrames = async (zipBuffer: ArrayBuffer, firstOnly?: boolean) => {
+        const zip = await JSZip.loadAsync(zipBuffer)
+        let frames = [] as AnimationFrame[]
+        let animations = [] as {file: string, delay: number}[]
+        const animationFile = zip.file("animation.json")
+        if (animationFile) {
+            const jsonText = await animationFile.async("text")
+            const json = JSON.parse(jsonText)
+            animations = json.frames || json
+        }
+        for (const frameInfo of animations) {
+            const {file, delay} = frameInfo
+            const fileObject = zip.file(file)
+            if (!fileObject) continue
+
+            const blob = await fileObject.async("blob")
+            const url = URL.createObjectURL(blob)
+            const image = await Functions.createImage(url)
+            const canvas = document.createElement("canvas")
+            canvas.width = image.width
+            canvas.height = image.height
+            const ctx = canvas.getContext("2d")!
+            ctx.drawImage(image, 0, 0)
+            URL.revokeObjectURL(url)
+            // The delay seems to run faster than on pixiv?
+            frames.push({frame: canvas, delay: delay * 1.5})
+            if (firstOnly) return frames
+        }
+        return frames
+    }
+
+    public static animationSpeed = (data: AnimationFrame[], speed: number) => {
+        if (speed === 1) return data 
+        const constraint = speed > 1 ? data.length / speed : data.length
+        let step = Math.ceil(data.length / constraint)
+        let newData = [] as AnimationFrame[] 
+        for (let i = 0; i < data.length; i += step) {
+            const frame = data[i].frame 
+            let delay = data[i].delay 
+            if (speed < 1) delay = delay / speed 
+            newData.push({frame, delay})
+        }
+        return newData
+    }
+
+    public static yieldToUI = () => {
+        return new Promise<void>((resolve) => setTimeout(resolve, 0))
+    }
+
+    public static encodeGIF = async (frames: ArrayBuffer[], delays: number[], width: number, height: number) => {
+        const gif = new GifEncoder(width, height, {highWaterMark: 5 * 1024 * 1024})
+        gif.setQuality(10)
+        gif.setRepeat(0)
+        gif.writeHeader()
+
+        const chunks: Buffer[] = []
+
+        gif.on("data", (chunk: Buffer) => {
+            chunks.push(chunk)
+        })
+
+        const finished = new Promise<Buffer>((resolve, reject) => {
+            gif.on("end", () => {
+                resolve(Buffer.concat(chunks))
+            })
+            gif.on("error", reject)
+        })
+
+        for (let i = 0; i < frames.length; i++) {
+            const {data} = await pixels(frames[i], {width, height})
+            gif.setDelay(delays[i])
+            gif.addFrame(data)
+
+            if (i % 2 === 0) {
+                await Functions.yieldToUI()
+            }
+        }
+
+        gif.finish()
+
+        return finished
     }
 
     public static arrayIncludes = (str: string, arr: string[]) => {
@@ -232,7 +355,7 @@ export default class Functions {
           stream.on("error", (err) => reject(err))
           stream.on("end", () => resolve(Buffer.concat(chunks)))
         })
-        return arr.buffer
+        return arr.buffer as ArrayBuffer
     }
 
     public static getFile = async (filepath: string) => {
@@ -300,6 +423,91 @@ export default class Functions {
         const ext = file.startsWith(".") ? file : path.extname(file)
         return ext === ".webm"
     }
+    
+    public static isVideo = (file?: string | null) => {
+        if (!file) return false
+        file = file.replace(/\?.*$/, "")
+        if (file?.startsWith("blob:")) {
+            const ext = file.split("#")?.[1] || ""
+            return Functions.arrayIncludes(ext, videoExtensions)
+        }
+        if (file.startsWith("data:video")) {
+            return true
+        }
+        const ext = file.startsWith(".") ? file : path.extname(file)
+        return Functions.arrayIncludes(ext, videoExtensions)
+    }
+
+    public static isAnimation = (file?: string | null) => {
+        if (!file) return false
+        file = file.replace(/\?.*$/, "")
+        if (file?.startsWith("blob:")) {
+            const ext = file.split("#")?.[1] || ""
+            return Functions.arrayIncludes(ext, animationExtensions)
+        }
+        if (file.startsWith("data:image")) {
+            return true
+        }
+        const ext = file.startsWith(".") ? file : path.extname(file)
+        return Functions.arrayIncludes(ext, animationExtensions)
+    }
+
+    public static isAnimatedWebp = (buffer: ArrayBuffer) => {
+        let str = ""
+        const byteArray = new Uint8Array(Buffer.from(buffer))
+        for (let i = 0; i < byteArray.length; i++) {
+            str += String.fromCharCode(byteArray[i])
+        }
+        return str.indexOf("ANMF") !== -1
+    }
+
+    public static isAnimatedPng = (buffer: ArrayBuffer) => {
+        let str = ""
+        const byteArray = new Uint8Array(Buffer.from(buffer))
+        for (let i = 0; i < byteArray.length; i++) {
+            str += String.fromCharCode(byteArray[i])
+        }
+        return str.indexOf("acTL") !== -1
+    }
+
+    public static isZip = (file?: string | null) => {
+        if (!file) return false
+        file = file.replace(/\?.*$/, "")
+        if (file?.startsWith("blob:")) {
+            const ext = file.split("#")?.[1] || ""
+            return ext === ".zip"
+        }
+        const ext = file.startsWith(".") ? file : path.extname(file)
+        return ext === ".zip"
+    }
+
+    public static isUgoiraZip = async (buffer: ArrayBuffer) => {
+        let isZip = false
+        const result = fileType(new Uint8Array(buffer))?.[0] || {mime: ""}
+        if (result.mime === "application/zip") isZip = true
+        if (!isZip) return false
+        
+        const zip = await JSZip.loadAsync(buffer)
+        
+        let hasImage = false
+        let hasAnimation = false
+
+        for (const [relativePath, file] of Object.entries(zip.files)) {
+            if (relativePath.startsWith("__MACOSX") || file.dir) continue
+            if (relativePath.endsWith("animation.json")) hasAnimation = true
+            if (relativePath.match(/\.(png|jpg|webp|avif)$/)) hasImage = true
+        }
+        
+        return hasImage && hasAnimation
+    }
+
+    public static createImage = async (image: string) => {
+        const img = new window.Image()
+        img.src = image
+        return new Promise<HTMLImageElement>((resolve) => {
+            img.onload = () => resolve(img)
+        })
+    }
 
     public static getLanguageName = (code?: string) => {
         if (!code) return "Unknown"
@@ -310,5 +518,90 @@ export default class Functions {
         } catch {
             return code
         }
+    }
+
+    public static filtersOn = (filters: {brightness: number, contrast: number, hue: number, saturation: number,
+        lightness: number, blur: number, sharpen: number, pixelate: number}) => {
+        let {brightness, contrast, hue, saturation, lightness, blur, sharpen, pixelate} = filters
+        if ((brightness !== 100) ||
+            (contrast !== 100) ||
+            (hue !== 180) ||
+            (saturation !== 100) ||
+            (lightness !== 100) ||
+            (blur !== 0) ||
+            (sharpen !== 0) ||
+            (pixelate !== 1)) {
+                return true 
+            } else {
+                return false
+            }
+    }
+
+    public static rateOn = (effects: {speed: number, reverse: boolean}) => {
+        let {speed, reverse} = effects
+        if ((speed !== 1) || (reverse !== false)) return true 
+        return false
+    }
+
+    public static render = <T extends boolean>(image: HTMLCanvasElement, filters: {brightness: number, 
+        contrast: number, hue: number, saturation: number, lightness: number, blur: number, sharpen: number, 
+        pixelate: number}, opt?: {clientWidth?: number, clientHeight?: number}) => {
+        let {brightness, contrast, hue, saturation, lightness, blur, sharpen, pixelate} = filters
+        let naturalWidth = image.width
+        let naturalHeight = image.height
+        let clientWidth = opt?.clientWidth || image.width
+        let clientHeight = opt?.clientHeight || image.height
+        const canvas = document.createElement("canvas") as HTMLCanvasElement
+        canvas.width = naturalWidth
+        canvas.height = naturalHeight
+        const ctx = canvas.getContext("2d")!
+        let newContrast = contrast
+        ctx.filter = `brightness(${brightness}%) contrast(${newContrast}%) hue-rotate(${hue - 180}deg) saturate(${saturation}%) blur(${blur}px)`
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+        if (pixelate !== 1) {
+            const pixelateCanvas = document.createElement("canvas")
+            const pixelateCtx = pixelateCanvas.getContext("2d")!
+
+            const pixelWidth = clientWidth / pixelate 
+            const pixelHeight = clientHeight / pixelate
+            pixelateCanvas.width = pixelWidth
+            pixelateCanvas.height = pixelHeight
+
+            pixelateCtx.drawImage(image, 0, 0, pixelWidth, pixelHeight)
+
+            ctx.imageSmoothingEnabled = false
+            ctx.drawImage(pixelateCanvas, 0, 0, canvas.width, canvas.height)
+            ctx.imageSmoothingEnabled = true
+        }
+
+        if (sharpen !== 0) {
+            const sharpnessCanvas = document.createElement("canvas")
+            sharpnessCanvas.width = naturalWidth
+            sharpnessCanvas.height = naturalHeight
+            const sharpnessCtx = sharpnessCanvas.getContext("2d")
+            sharpnessCtx?.drawImage(image, 0, 0, sharpnessCanvas.width, sharpnessCanvas.height)
+            const sharpenOpacity = sharpen / 5
+            newContrast += 25 * sharpenOpacity
+            const filter = `blur(4px) invert(1) contrast(75%)`
+            ctx.filter = filter 
+            ctx.globalAlpha = sharpenOpacity
+            ctx.globalCompositeOperation = "overlay"
+            ctx.drawImage(sharpnessCanvas, 0, 0, canvas.width, canvas.height)
+        }
+
+        if (lightness !== 100) {
+            const lightnessCanvas = document.createElement("canvas")
+            lightnessCanvas.width = naturalWidth
+            lightnessCanvas.height = naturalHeight
+            const lightnessCtx = lightnessCanvas.getContext("2d")
+            lightnessCtx?.drawImage(image, 0, 0, lightnessCanvas.width, lightnessCanvas.height)
+            const filter = lightness < 100 ? "brightness(0)" : "brightness(0) invert(1)"
+            ctx.filter = filter
+            ctx.globalAlpha = Math.abs((lightness - 100) / 100)
+            ctx.drawImage(lightnessCanvas, 0, 0, canvas.width, canvas.height)
+        }
+
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        return img.data.buffer as ArrayBuffer 
     }
 }

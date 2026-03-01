@@ -38,7 +38,8 @@ const playbackSlice = createSlice({
         seekTo: null as number | null,
         dragging: false,
         abDragging: false,
-        dragProgress: 0
+        dragProgress: 0,
+        animation: false
     },
     reducers: {
         setOriginalSrc: (state, action) => {state.originalSrc = action.payload},
@@ -68,7 +69,8 @@ const playbackSlice = createSlice({
         setSeekTo: (state, action) => {state.seekTo = action.payload},
         setDragging: (state, action) => {state.dragging = action.payload},
         setABDragging: (state, action) => {state.abDragging = action.payload},
-        setDragProgress: (state, action) => {state.dragProgress = action.payload}
+        setDragProgress: (state, action) => {state.dragProgress = action.payload},
+        setAnimation: (state, action) => {state.animation = action.payload}
     }
 })
 
@@ -79,7 +81,7 @@ const {
     setLoopStart, setLoopEnd, setSavedLoop, setOutlineThickness,
     setProgress, setSecondsProgress, setSeekTo, setDragging,
     setDragProgress, setABDragging, setStepFlag, setSubtitleColor,
-    setOutlineColor, setSubtitleSize, setOriginalSrc
+    setOutlineColor, setSubtitleSize, setOriginalSrc, setAnimation
 } = playbackSlice.actions
 
 export const usePlaybackSelector = () => {
@@ -112,7 +114,8 @@ export const usePlaybackSelector = () => {
         seekTo: selector((state) => state.playback.seekTo),
         dragging: selector((state) => state.playback.dragging),
         abDragging: selector((state) => state.playback.abDragging),
-        dragProgress: selector((state) => state.playback.dragProgress)
+        dragProgress: selector((state) => state.playback.dragProgress),
+        animation: selector((state) => state.playback.animation)
     }
 }
 
@@ -146,7 +149,8 @@ export const usePlaybackActions = () => {
         setSeekTo: (state: number | null) => dispatch(setSeekTo(state)),
         setDragging: (state: boolean) => dispatch(setDragging(state)),
         setABDragging: (state: boolean) => dispatch(setABDragging(state)),
-        setDragProgress: (state: number) => dispatch(setDragProgress(state))
+        setDragProgress: (state: number) => dispatch(setDragProgress(state)),
+        setAnimation: (state: boolean) => dispatch(setAnimation(state))
     }
 }
 

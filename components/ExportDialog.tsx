@@ -13,16 +13,15 @@ const ExportDialog: React.FunctionComponent = (props) => {
     const [percent, setPercent] = useState(0)
     const [timemark, setTimemark] = useState(0)
     const [duration, setDuration] = useState(0)
+    const [type, setType] = useState("")
 
     useEffect(() => {
-        const showExportDialog = (event: any, visible: boolean) => {
+        const showExportDialog = (event: any, visible: boolean, type: string) => {
             setVisible(visible)
             setPercent(0)
             setTimemark(0)
             setDuration(0)
-        }
-        const closeAllDialogs = (event: any, ignore: any) => {
-            // if (ignore !== "export") setVisible(false)
+            setType(type)
         }
         const exportProgress = (event: any, progress: any) => {
             setPercent((functions.parseSeconds(progress.timemark) / progress.duration) * 100)
@@ -30,11 +29,9 @@ const ExportDialog: React.FunctionComponent = (props) => {
             setDuration(progress.duration)
         }
         window.ipcRenderer.on("show-export-dialog", showExportDialog)
-        window.ipcRenderer.on("close-all-dialogs", closeAllDialogs)
         window.ipcRenderer.on("export-progress", exportProgress)
         return () => {
             window.ipcRenderer.removeListener("show-export-dialog", showExportDialog)
-            window.ipcRenderer.removeListener("close-all-dialogs", closeAllDialogs)
             window.ipcRenderer.removeListener("export-progress", exportProgress)
         }
     }, [])
@@ -44,7 +41,7 @@ const ExportDialog: React.FunctionComponent = (props) => {
             <section className="export-dialog">
                 <div className="export-dialog-box">
                     <div className="export-container">
-                        <p className="export-dialog-text">Exporting video... {percent.toFixed(0)}%</p>
+                        <p className="export-dialog-text">{type === "gif" ? "Exporting gif..." : `Exporting video... ${percent.toFixed(0)}%`}</p>
                         {timemark ?
                         <p className="export-dialog-text">{functions.formatSeconds(timemark)}/{functions.formatSeconds(duration)}</p> 
                         : null}

@@ -7,8 +7,10 @@
 import fs from "fs"
 import path from "path"
 import child_process from "child_process"
+import functions from "./functions"
 
 const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"]
+const animationExtensions = [".gif", ".webp", ".apng", ".png", ".zip"]
 
 export default class MainFunctions {
     public static spawn = async (file: string, args: string[]): 
@@ -42,13 +44,36 @@ export default class MainFunctions {
     }
 
     public static getSortedFiles = async (dir: string) => {
+        const accepted = [...videoExtensions, ...animationExtensions]
+
         const files = await fs.promises.readdir(dir)
-        return files
-            .filter((f) => videoExtensions.includes(path.extname(f)))
-            .map(fileName => ({
-                name: fileName,
-                time: fs.statSync(`${dir}/${fileName}`).mtime.getTime(),
-            }))
+
+        const validFiles = await Promise.all(files.map(async (fileName: string) => {
+            const ext = path.extname(fileName)
+            if (!accepted.includes(ext)) return null
+
+            const filePath = path.join(dir, fileName)
+
+            if (ext === ".png" || ext === ".webp" || ext === ".zip") {
+                const buffer = await fs.promises.readFile(filePath)
+                let valid = false
+
+                if (ext === ".png") {
+                    valid = functions.isAnimatedPng(buffer.buffer)
+                } else if (ext === ".webp") {
+                    valid = functions.isAnimatedWebp(buffer.buffer)
+                } else if (ext === ".zip") {
+                    valid = await functions.isUgoiraZip(buffer.buffer)
+                }
+                if (!valid) return null
+            }
+
+            const stats = await fs.promises.stat(filePath)
+            return {name: fileName, time: stats.mtime.getTime()}
+        }))
+
+        return validFiles
+            .filter((file): file is {name: string; time: number} => file !== null)
             .sort((a, b) => b.time - a.time)
             .map(file => file.name)
     }

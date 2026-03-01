@@ -119,6 +119,11 @@ ipcMain.handle("read-buffer", async (event, file: string) => {
   return fs.readFileSync(file)
 })
 
+ipcMain.handle("save-buffer", async (event, filePath: string, buffer: ArrayBuffer) => {
+  fs.writeFileSync(filePath, Buffer.from(buffer))
+  shell.showItemInFolder(path.normalize(filePath))
+})
+
 const containsAudio = async (file: string, ffmpegPath?: string) => {
   const str = await mainFunctions.spawn(ffmpegPath ?? "ffmpeg", ["-i", file])
     .then((s: any) => s.stdout).catch((e: any) => e.stderr)
@@ -175,7 +180,7 @@ ipcMain.handle("export-video", async (event, videoFile: string, savePath: string
   shell.showItemInFolder(savePath)
 })
 
-ipcMain.handle("save-dialog", async (event, defaultPath: string) => {
+ipcMain.handle("save-video-dialog", async (event, defaultPath: string) => {
   if (!window) return
   const save = await dialog.showSaveDialog(window, {
     defaultPath,
@@ -186,6 +191,19 @@ ipcMain.handle("save-dialog", async (event, defaultPath: string) => {
       {name: "MOV", extensions: ["mov"]},
       {name: "AVI", extensions: ["avi"]},
       {name: "WEBM", extensions: ["webm"]}
+    ],
+    properties: ["createDirectory"]
+  })
+  return save.filePath ? save.filePath : null
+})
+
+ipcMain.handle("save-gif-dialog", async (event, defaultPath: string) => {
+  if (!window) return
+  const save = await dialog.showSaveDialog(window, {
+    defaultPath,
+    filters: [
+      {name: "All Files", extensions: ["*"]},
+      {name: "GIF", extensions: ["gif"]}
     ],
     properties: ["createDirectory"]
   })
@@ -252,9 +270,9 @@ ipcMain.handle("previous", async (event, videoFile: string) => {
   return null
 })
 
-ipcMain.handle("export-dialog", async (event, visible: boolean) => {
+ipcMain.handle("export-dialog", async (event, visible: boolean, type: string) => {
   window?.webContents.send("close-all-dialogs", "export")
-  window?.webContents.send("show-export-dialog", visible)
+  window?.webContents.send("show-export-dialog", visible, type)
 })
 
 ipcMain.handle("reverse-dialog", async (event, visible: boolean, type: string) => {
@@ -335,7 +353,7 @@ ipcMain.handle("get-tracks", async (event, videoFile: string) => {
   return {tracks, chapters}
 })
 
-ipcMain.handle("extract-subtitle-track", async (event, videoFile: string, streamIndex: number) => {
+ipcMain.handle("extract-subtitle-track", async (event, videoFile: string, streamIndex: number, ignoreError?: boolean) => {
     if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
     const name = path.basename(videoFile, path.extname(videoFile))
 
@@ -354,7 +372,7 @@ ipcMain.handle("extract-subtitle-track", async (event, videoFile: string, stream
         .save(newDest)
         .on("end", () => resolve(newDest))
         .on("error", (err) => reject(err))
-    }).catch((err) => console.log(err))
+    }).catch((err) => ignoreError ? null : console.log(err))
 })
 
 ipcMain.handle("extract-audio-track", async (event, videoFile: string, streamIndex: number) => {
@@ -420,7 +438,8 @@ ipcMain.handle("select-file", async () => {
   const files = await dialog.showOpenDialog(window, {
     filters: [
       {name: "All Files", extensions: ["*"]},
-      {name: "Video", extensions: ["mp4", "webm", "mkv", "mov", "avi", "m4v"]}
+      {name: "Video", extensions: ["mp4", "webm", "mkv", "mov", "avi", "m4v"]},
+      {name: "Animation", extensions: ["gif", "webp", "png", "apng", "zip"]}
     ],
     properties: ["openFile"]
   })
