@@ -1,3 +1,9 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Motion Player - A cute video player ❤                     *
+ * Copyright © 2026 Moebytes <moebytes.com>                  *
+ * Licensed under CC BY-NC 4.0. See license.txt for details. *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 import React, {useEffect, useState} from "react"
 import {useFilterSelector, useFilterActions, useActiveSelector, useActiveActions} from "../store"
 import BrightnessIcon from "../assets/svg/brightness.svg"

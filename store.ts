@@ -1,3 +1,9 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Motion Player - A cute video player ❤                     *
+ * Copyright © 2026 Moebytes <moebytes.com>                  *
+ * Licensed under CC BY-NC 4.0. See license.txt for details. *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 import {configureStore} from "@reduxjs/toolkit"
 import themeReducer, {useThemeSelector, useThemeActions} from "./reducers/themeReducer"
 import filterReducer, {useFilterSelector, useFilterActions} from "./reducers/filterReducer"

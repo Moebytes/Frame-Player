@@ -1,3 +1,9 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Motion Player - A cute video player ❤                     *
+ * Copyright © 2026 Moebytes <moebytes.com>                  *
+ * Licensed under CC BY-NC 4.0. See license.txt for details. *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 import "bootstrap/dist/css/bootstrap.min.css"
 import React, {useEffect} from "react"
 import {createRoot} from "react-dom/client"
