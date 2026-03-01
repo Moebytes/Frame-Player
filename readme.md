@@ -6,14 +6,14 @@ A simple video player app.
 
 ### Features:
 - Play local videos, links, and YouTube videos (MP4, MKV, MOV, AVI, WEBM, M4V)
-- Play local audio and links (MP3, WAV, OGG)
+- Play local animations (GIF, WEBP, APNG, Ugoira)
 - Adjust the volume of the video
 - Reversing effect
 - Time stretching (can preserve or affect the pitch)
-- Apply video filters (brightness, contrast, saturation, pixelate, etc).
+- Apply filters (brightness, contrast, saturation, pixelate, etc).
 - Looping from point A to point B
 - Enter full-screen mode
-- Export videos with applied effects
+- Export with applied effects
 
 ### Keyboard Shortcuts:
 - Space: Play/pause
