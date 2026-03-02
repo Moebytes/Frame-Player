@@ -44,7 +44,7 @@ export default class MainFunctions {
     }
 
     public static getSortedFiles = async (dir: string) => {
-        const accepted = [...videoExtensions, ...animationExtensions]
+        const accepted = [...videoExtensions, ".gif", ".apng"]
 
         const files = await fs.promises.readdir(dir)
 
@@ -53,20 +53,6 @@ export default class MainFunctions {
             if (!accepted.includes(ext)) return null
 
             const filePath = path.join(dir, fileName)
-
-            if (ext === ".png" || ext === ".webp" || ext === ".zip") {
-                const buffer = await fs.promises.readFile(filePath)
-                let valid = false
-
-                if (ext === ".png") {
-                    valid = functions.isAnimatedPng(buffer.buffer)
-                } else if (ext === ".webp") {
-                    valid = functions.isAnimatedWebp(buffer.buffer)
-                } else if (ext === ".zip") {
-                    valid = await functions.isUgoiraZip(buffer.buffer)
-                }
-                if (!valid) return null
-            }
 
             const stats = await fs.promises.stat(filePath)
             return {name: fileName, time: stats.mtime.getTime()}

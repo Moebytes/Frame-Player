@@ -174,6 +174,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         window.ipcRenderer.on("select-chapter", selectChapter)
         window.ipcRenderer.on("select-audio-track", selectAudioTrack)
         window.ipcRenderer.on("select-subtitle-track", selectSubtitleTrack)
+        window.ipcRenderer.on("show-info-dialog", showInfoDialog)
         return () => {
             window.removeEventListener("mouseup", onWindowMouseUp)
             window.ipcRenderer.removeListener("open-file", openFile)
@@ -186,6 +187,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             window.ipcRenderer.removeListener("select-chapter", selectChapter)
             window.ipcRenderer.removeListener("select-audio-track", selectAudioTrack)
             window.ipcRenderer.removeListener("select-subtitle-track", selectSubtitleTrack)
+            window.ipcRenderer.removeListener("show-info-dialog", showInfoDialog)
         }
     }, [])
 
@@ -193,6 +195,11 @@ const VideoPlayer: React.FunctionComponent = () => {
         const width = videoRef.current?.videoWidth
         const height = videoRef.current?.videoHeight
         window.ipcRenderer.invoke("resize-window", {width, height})
+    })
+
+    const showInfoDialog = useEffectEvent(() => {
+        if (!originalSrc) return
+        window.ipcRenderer.invoke("show-info-dialog", originalSrc)
     })
 
     useEffect(() => {

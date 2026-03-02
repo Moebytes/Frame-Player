@@ -295,6 +295,48 @@ ipcMain.handle("upload-file", () => {
   window?.webContents.send("upload-file")
 })
 
+ipcMain.handle("show-info-dialog", async (event: any, videoFile: string) => {
+  if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
+  let args = ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", videoFile]
+
+  const str = await mainFunctions.spawn(ffprobePath ?? "ffprobe", args).then((s: any) => s.stdout).catch((e: any) => e.stderr)
+  const json = JSON.parse(str)
+
+  const stream = json.streams[0]
+  const format = json.format
+
+  const parseFps = (rate: string | undefined) => {
+    if (!rate) return "?"
+    const [num, den] = rate.split("/").map(Number)
+    if (!num || !den) return "?"
+    return (num / den).toFixed(2)
+  }
+
+  const detail = [
+    `Name: ${format.filename}`,
+    `Width: ${stream.width}`,
+    `Height: ${stream.height}`,
+    `Duration: ${functions.formatSeconds(Number(format.duration))}`,
+    `Size: ${functions.readableFileSize(Number(format.size))}`,
+    `Format: ${format.format_name}`,
+    `Codec: ${stream.codec_name}`,
+    `Bitrate: ${functions.formatBitrate(Number(format.bit_rate))}`,
+    `Framerate: ${parseFps(stream.r_frame_rate)}`,
+    `Frames: ${stream.nb_frames ?? "?"}`,
+    `Streams: ${format.nb_streams}`,
+    `Pixel Format: ${stream.pix_fmt}`
+  ].join("\n")
+
+  await dialog.showMessageBox(window!, {
+    type: "info",
+    title: "Video Info",
+    message: "Video Info",
+    detail,
+    buttons: ["Ok"],
+    noLink: true
+  })
+})
+
 ipcMain.handle("get-tracks", async (event, videoFile: string) => {
   if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
   let args = ["-v", "error", "-print_format", "json", "-show_streams", "-show_chapters", videoFile]
@@ -534,6 +576,10 @@ ipcMain.handle("context-menu", (event, {hasSelection}) => {
     {label: "Copy", enabled: hasSelection, role: "copy"},
     {label: "Paste", role: "paste"},
     {type: "separator"},
+    {label: "Get Info", click: () => event.sender.send("show-info-dialog")},
+    {label: `Opacity (${windowOpacity}%)`, submenu: opacitySubmenu()},
+    {label: "Toggle Fullscreen", click: () => event.sender.send("toggle-fullscreen")},
+    {type: "separator"},
     {label: "Lock Aspect Ratio", click: () => event.sender.send("trigger-resize")},
     {label: "Unlock Aspect Ratio", click: () => window?.setAspectRatio(0)},
     {label: "Keep Ratio Unlocked", type: "checkbox",
@@ -542,9 +588,6 @@ ipcMain.handle("context-menu", (event, {hasSelection}) => {
         store.set("keep-ratio-unlocked", menuItem.checked)
         if (menuItem.checked) window?.setAspectRatio(0)
     }},
-    {type: "separator"},
-    {label: `Opacity (${windowOpacity}%)`, submenu: opacitySubmenu()},
-    {label: "Toggle Fullscreen", click: () => event.sender.send("toggle-fullscreen")},
     {type: "separator"},
     {label: "Copy Loop", click: () => event.sender.send("copy-loop")},
     {label: "Paste Loop", click: () => event.sender.send("paste-loop")},

@@ -604,4 +604,16 @@ export default class Functions {
         const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
         return img.data.buffer as ArrayBuffer 
     }
+
+    public static readableFileSize = (bytes: number) => {
+        const i = bytes === 0 ? 0 : Math.floor(Math.log(bytes) / Math.log(1024))
+        return `${Number((bytes / Math.pow(1024, i)).toFixed(2))} ${["B", "KB", "MB", "GB", "TB"][i]}`
+    }
+
+    public static formatBitrate = (bitrate: number) => {
+        if (bitrate < 1000) return bitrate + " bps"
+        if (bitrate < 1000000) return (bitrate / 1_000).toFixed(2) + " kbps"
+        if (bitrate < 1000000000) return (bitrate / 1_000_000).toFixed(2) + " Mbps"
+        return (bitrate / 1000000000).toFixed(2) + " Gbps"
+    }
 }
