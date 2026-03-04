@@ -1346,7 +1346,8 @@ const VideoPlayer: React.FunctionComponent = () => {
         setDraggingVideo(true)
     }
 
-    const videoMouseUp = () => {
+    const videoMouseUp = (event: React.MouseEvent) => {
+        if (event.button !== 0) return
         if (!draggingVideo) play()
     }
 
