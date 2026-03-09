@@ -934,7 +934,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             video.removeEventListener("play", syncPlay)
             video.removeEventListener("pause", syncPause)
         }
-    }, [])
+    }, [videoLoaded])
 
     const play = () => {
         if (animation) {
@@ -1429,7 +1429,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                         {animation ?
                         <img className="video" ref={animationRef} onLoad={onAnimationLoaded} draggable={false} src={backFrame}/> : 
                         <video className="video" ref={videoRef} onLoadedMetadata={onVideoLoaded}>
-                            <track ref={trackRef} kind="subtitles" src={subtitleSrc ?? ""}></track>
+                            <track key={subtitleSrc} ref={trackRef} kind="subtitles" src={subtitleSrc ?? ""}></track>
                         </video>}
                     </div>
                     </TransformComponent>

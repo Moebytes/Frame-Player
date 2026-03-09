@@ -610,6 +610,7 @@ ipcMain.handle("context-menu", (event, {hasSelection}) => {
     {label: "Get Info", click: () => event.sender.send("show-info-dialog")},
     {label: `Opacity (${windowOpacity}%)`, submenu: opacitySubmenu()},
     {label: "Toggle Fullscreen", click: () => event.sender.send("toggle-fullscreen")},
+    {label: "Toggle Pinned", click: () => event.sender.send("toggle-pinned")},
     {type: "separator"},
     {label: "Lock Aspect Ratio", click: () => event.sender.send("trigger-resize")},
     {label: "Unlock Aspect Ratio", click: () => window?.setAspectRatio(0)},
@@ -723,6 +724,11 @@ const applicationMenu = () =>  {
             const win = window as BrowserWindow
             win?.webContents.send("toggle-fullscreen")
         }},
+        {label: "Toggle Pinned",
+          click: (item, window) => {
+            const win = window as BrowserWindow
+            win?.webContents.send("toggle-pinned")
+        }}
       ]
     },
     {label: "Chapter", submenu: chapterSubmenu},

@@ -4,7 +4,7 @@
  * Licensed under CC BY-NC 4.0. See license.txt for details. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-import React, {useState} from "react"
+import React, {useEffect, useEffectEvent, useState} from "react"
 import {useActiveSelector, useActiveActions, useThemeSelector, useThemeActions} from "../store"
 import CircleIcon from "../assets/svg/circle.svg"
 import CircleCloseIcon from "../assets/svg/circle-close.svg"
@@ -34,6 +34,13 @@ const TitleBar: React.FunctionComponent = () => {
     const {theme, os, transparent, pinned} = useThemeSelector()
     const {setTheme, setOS, setTransparent, setPinned} = useThemeActions()
     const [iconHover, setIconHover] = useState(false)
+
+    useEffect(() => {
+        window.ipcRenderer.on("toggle-pinned", switchPinned)
+        return () => {    
+            window.ipcRenderer.removeListener("toggle-pinned", switchPinned)
+        }
+    }, [])
 
     const onMouseDown = () => {
         window.ipcRenderer.send("moveWindow")
@@ -84,9 +91,9 @@ const TitleBar: React.FunctionComponent = () => {
         setTransparent(!transparent)
     }
 
-    const switchPinned = () => {
+    const switchPinned = useEffectEvent(() => {
         setPinned(!pinned)
-    }
+    })
 
     const macTitleBar = () => {
         return (
