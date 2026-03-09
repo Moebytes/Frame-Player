@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Motion Player - A cute video player ❤                     *
+ * Frame Player - A cute video player ❤                     *
  * Copyright © 2026 Moebytes <moebytes.com>                  *
  * Licensed under CC BY-NC 4.0. See license.txt for details. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -7,7 +7,6 @@
 import fs from "fs"
 import path from "path"
 import child_process from "child_process"
-import functions from "./functions"
 
 const videoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"]
 const animationExtensions = [".gif", ".webp", ".apng", ".png", ".zip"]
@@ -62,30 +61,6 @@ export default class MainFunctions {
             .filter((file): file is {name: string; time: number} => file !== null)
             .sort((a, b) => b.time - a.time)
             .map(file => file.name)
-    }
-
-    public static getNodePath = () => {
-        const exists = (path: string) => fs.existsSync(path)
-
-        if (process.platform === "win32") {
-            const winPaths = [
-                "C:\\Program Files\\nodejs\\node.exe",
-                "C:\\Program Files (x86)\\nodejs\\node.exe"
-            ]
-            return winPaths.find(exists) ?? "node"
-        } else if (process.platform === "darwin") {
-            const macPaths = [
-                "/opt/homebrew/bin/node",
-                "/usr/local/bin/node"
-            ]
-            return macPaths.find(exists) ?? "node"
-        } else {
-            const linuxPaths = [
-                "/usr/bin/node",
-                "/usr/local/bin/node"
-            ]
-            return linuxPaths.find(exists) ?? "node"
-        }
     }
 
     public static removeDirectory = (dir: string) => {

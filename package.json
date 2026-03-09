@@ -1,6 +1,7 @@
 {
-  "name": "motion-player",
+  "name": "frame-player",
   "version": "1.0.0",
+  "author": "Moebytes",
   "description": "A cute video player!",
   "main": "dist/main/index.js",
   "scripts": {
@@ -15,30 +16,33 @@
     "anime",
     "cute"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Moebytes/Motion-Player"
-  },
+  "repository": "https://github.com/Moebytes/Frame-Player",
+  "privacyPolicy": "https://moebytes.com/privacy-policy",
+  "license": "CC BY-NC 4.0",
   "build": {
-    "appId": "com.moebytes.motion-player",
-    "productName": "Motion Player",
+    "appId": "com.moebytes.frame-player",
+    "productName": "Frame Player",
     "icon": "./assets/icon.png",
     "directories": {
       "buildResources": "assets",
       "output": "build"
     },
-    "buildDependenciesFromSource": true,
     "mac": {
       "target": {
-        "target": "dmg",
+        "target": "mas",
         "arch": "arm64"
       },
+      "type": "distribution",
+      "provisioningProfile": "assets/mas/MacAppStore.provisionprofile",
       "category": "public.app-category.video",
       "extraFiles": [
         "ffmpeg/ffmpeg.app",
-        "ffmpeg/ffprobe.app",
-        "ytdl/yt-dlp.app"
+        "ffmpeg/ffprobe.app"
       ]
+    },
+    "mas": {
+      "entitlements": "assets/mas/entitlements.mas.plist",
+      "entitlementsInherit": "assets/mas/entitlements.mas.inherit.plist"
     },
     "dmg": {
       "title": "${productName}",
@@ -55,21 +59,20 @@
       },
       "extraFiles": [
         "ffmpeg/ffmpeg.exe",
-        "ffmpeg/ffprobe.exe",
-        "ytdl/yt-dlp.exe"
+        "ffmpeg/ffprobe.exe"
       ]
     },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
-      "uninstallDisplayName": "Motion Player",
+      "uninstallDisplayName": "Frame Player",
       "createDesktopShortcut": "always",
       "installerSidebar": "./assets/installer.bmp",
       "uninstallerSidebar": "./assets/installer.bmp"
     },
     "appx": {
-      "identityName": "Moebytes.MotionPlayer",
+      "identityName": "Moebytes.FramePlayer",
       "publisher": "CN=4C1B763B-CF01-4978-8749-986F562173D8, OID.2.25.311729368913984317654407730594956997722=1",
       "publisherDisplayName": "Moebytes",
       "capabilities": [
@@ -87,20 +90,13 @@
       "category": "Video",
       "extraFiles": [
         "ffmpeg/ffmpeg",
-        "ffmpeg/ffprobe",
-        "ytdl/yt-dlp"
+        "ffmpeg/ffprobe"
       ]
     },
     "files": [
       "dist/**/*",
       "package.json"
     ],
-    "publish": {
-      "provider": "github",
-      "repo": "Motion-Player",
-      "owner": "Moebytes",
-      "releaseType": "draft"
-    },
     "fileAssociations": [
       {
         "ext": "mp4",
@@ -136,8 +132,6 @@
       }
     ]
   },
-  "author": "Moebytes",
-  "license": "CC BY-NC 4.0",
   "devDependencies": {
     "@electron-rsbuild/plugin-main": "^0.0.12",
     "@electron-rsbuild/plugin-preload": "^0.0.12",

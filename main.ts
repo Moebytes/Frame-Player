@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Motion Player - A cute video player ❤                     *
+ * Frame Player - A cute video player ❤                     *
  * Copyright © 2026 Moebytes <moebytes.com>                  *
  * Licensed under CC BY-NC 4.0. See license.txt for details. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -35,13 +35,6 @@ if (process.platform === "linux") ffprobePath = path.join(app.getAppPath(), "../
 if (process.env.DEVELOPMENT === "true") ffprobePath = "./ffmpeg/ffprobe.app"
 if (!fs.existsSync(ffprobePath)) ffprobePath = undefined
 
-let ytdlPath = undefined as any
-if (process.platform === "darwin") ytdlPath = path.join(app.getAppPath(), "../../ytdl/yt-dlp.app")
-if (process.platform === "win32") ytdlPath = path.join(app.getAppPath(), "../../ytdl/yt-dlp.exe")
-if (process.platform === "linux") ytdlPath = path.join(app.getAppPath(), "../../ytdl/yt-dlp")
-if (process.env.DEVELOPMENT === "true") ytdlPath = "./ytdl/yt-dlp.app"
-if (!fs.existsSync(ytdlPath)) ytdlPath = "yt-dlp"
-
 const store = new Store()
 let initialTransparent = process.platform === "win32" ? store.get("transparent", false) as boolean : true
 let windowOpacity = store.get("window-opacity", 100) as number
@@ -51,6 +44,8 @@ let filePath = ""
 let chapters = [] as VideoChapter[]
 let audioTracks = [] as VideoTrack[]
 let subtitleTracks = [] as VideoTrack[]
+
+const videoCacheLocation = path.join(app.getPath("downloads"), "Frame Player assets")
 
 ipcMain.handle("close", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -106,7 +101,7 @@ ipcMain.handle("mov-to-mp4", async (event, videoFile: string) => {
   const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
   const ext = path.extname(videoFile)
   const name = path.basename(videoFile, ext)
-  const savePath = path.join(app.getPath("documents"), `Motion Player/videos/${name}.mp4`)
+  const savePath = path.join(videoCacheLocation, `videos/${name}.mp4`)
   if (!fs.existsSync(path.dirname(savePath))) fs.mkdirSync(path.dirname(savePath), {recursive: true})
   if (fs.existsSync(savePath)) return savePath
   await new Promise<void>((resolve) => {
@@ -141,25 +136,42 @@ const containsAudio = async (file: string, ffmpegPath?: string) => {
 }
 
 ipcMain.handle("export-video", async (event, videoFile: string, savePath: string, options: any) => {
-  let {reverse, speed, preservesPitch, abloop, loopStart, loopEnd, duration} = options
+  let {reverse, speed, preservesPitch, abloop, loopStart, loopEnd, duration, audioTracks} = options
   if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
-  const audio = await containsAudio(videoFile, ffmpegPath)
 
   const overwrite = path.resolve(videoFile) === path.resolve(savePath)
 
   const tempOutput = overwrite
-    ? path.join(app.getPath("documents"), `Motion Player/videos/temp_${path.basename(savePath)}`)
+    ? path.join(videoCacheLocation, `videos/temp_${path.basename(savePath)}`)
     : savePath
 
   const baseFlags = ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
-  let audioSpeed = preservesPitch ? `atempo=${speed}` : `asetrate=44100*${speed},aresample=44100`
+  let sampleRate = audioTracks[0]?.sampleRate || 44100
+  let audioSpeed = preservesPitch ? `atempo=${speed}` : `asetrate=${sampleRate}*${speed},aresample=${sampleRate}`
 
-  const videoBlock = `[0:v]setpts=${1.0/speed}*PTS${reverse ? ",reverse": ""}[v]`
-  let audioBlock =`[0:a]${audioSpeed}${reverse ? ",areverse" : ""}[a]`
+  const videoBlock = `[0:v:0]setpts=${1.0/speed}*PTS${reverse ? ",reverse": ""}[v]`
 
-  let audioFilter = ["-filter_complex", `${videoBlock};${audioBlock}`, "-map", "[v]",  "-map", "[a]"]
-  let noAudioFilter = ["-filter_complex", `${videoBlock}`, "-map", "[v]"]
-  let filter = audio ? audioFilter : noAudioFilter
+  let filterParts = [videoBlock]
+  let maps = ["-map", "[v]"]
+  let metadata = [] as string[]
+
+  for (let i = 0; i < audioTracks.length; i++) {
+    const label = `a${i}`
+    filterParts.push(`[0:a:${i}]${audioSpeed}${reverse ? ",areverse" : ""}[${label}]`)
+    maps.push("-map", `[${label}]`)
+
+    const track = audioTracks[i] as VideoTrack
+
+    if (track.language) {
+      metadata.push(`-metadata:s:a:${i}`, `language=${track.language}`)
+    }
+
+    if (track.title) {
+      metadata.push(`-metadata:s:a:${i}`, `title=${track.title}`)
+    }
+  }
+
+  let filter = ["-filter_complex", filterParts.join(";"), ...maps, ...metadata]
 
   let segment = [] as string[]
   duration /= speed
@@ -225,18 +237,11 @@ ipcMain.handle("trigger-download", async (event, link: string) => {
 
 ipcMain.handle("download-yt-video", async (event, url: string) => {
   const name = await youtube.util.getTitle(url)
-  const savePath = path.join(app.getPath("documents"), `Motion Player/videos/${name}.mp4`)
+  const savePath = path.join(videoCacheLocation, `videos/${name}.mp4`)
   if (fs.existsSync(savePath)) return savePath
 
-  let args = [
-    "--js-runtimes", `node:${mainFunctions.getNodePath()}`, "--ffmpeg-location", ffmpegPath ?? "ffmpeg",
-    "-t", "mp4", url, "-o", savePath
-  ]
-  const str = await mainFunctions.spawn(ytdlPath ?? "yt-dlp", args)
-    .then((s: any) => s.stdout).catch((e: any) => e.stderr)
-
-  window?.webContents.send("debug", str)
-  return savePath
+  // not implemented
+  return null
 })
 
 ipcMain.handle("open-link", async (event, link: string) => {
@@ -382,7 +387,8 @@ ipcMain.handle("get-tracks", async (event, videoFile: string) => {
       type: stream.codec_type,
       codec: stream.codec_name,
       language: stream.tags?.language,
-      title: stream.tags?.title
+      title: stream.tags?.title,
+      sampleRate: stream.codec_type === "audio" ? Number(stream.sample_rate) : undefined
     } as VideoTrack
 
     tracks.push(track)
@@ -408,7 +414,7 @@ ipcMain.handle("extract-subtitle-track", async (event, videoFile: string, stream
     if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
     const name = path.basename(videoFile, path.extname(videoFile))
 
-    const vidDest = path.join(app.getPath("documents"), `Motion Player/subtitles`)
+    const vidDest = path.join(videoCacheLocation, `subtitles`)
     if (!fs.existsSync(vidDest)) fs.mkdirSync(vidDest, {recursive: true})
 
     const newDest = path.join(vidDest, `./${name}_${streamIndex}.${format}`)
@@ -430,7 +436,7 @@ ipcMain.handle("extract-audio-track", async (event, videoFile: string, streamInd
   if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
   const name = path.basename(videoFile, path.extname(videoFile))
 
-  const vidDest = path.join(app.getPath("documents"), `Motion Player/audio`)
+  const vidDest = path.join(videoCacheLocation, `audio`)
   if (!fs.existsSync(vidDest)) fs.mkdirSync(vidDest, {recursive: true})
 
   const newDest = path.join(vidDest, `${name}_${streamIndex}${path.extname(videoFile)}`)
@@ -452,7 +458,7 @@ ipcMain.handle("extract-audio-track", async (event, videoFile: string, streamInd
 ipcMain.handle("get-reverse-src", async (event, videoFile: string, index: number) => {
   const ext = path.extname(videoFile)
   const name = path.basename(videoFile, ext)
-  const vidDest = path.join(app.getPath("documents"), `Motion Player/audio`)
+  const vidDest = path.join(videoCacheLocation, `audio`)
   const newDest = path.join(vidDest, `./${name}_reverse${index}${ext}`)
   if (fs.existsSync(newDest)) return newDest
   return null
@@ -462,26 +468,43 @@ ipcMain.handle("reverse-audio-track", async (event, videoFile: string, index: nu
     if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
     const ext = path.extname(videoFile)
     const name = path.basename(videoFile, ext)
-    const vidDest = path.join(app.getPath("documents"), `Motion Player/audio`)
-    if (!fs.existsSync(vidDest)) fs.mkdirSync(vidDest, {recursive: true})
+    const audioDest = path.join(videoCacheLocation, `audio`)
+    if (!fs.existsSync(audioDest)) fs.mkdirSync(audioDest, {recursive: true})
 
-    const newDest = path.join(vidDest, `./${name}_reverse${index}${ext}`)
-    if (fs.existsSync(newDest)) return newDest
+    const reversedAudio = path.join(audioDest, `${name}_reverse_${index}.m4a`)
+    const vidDest = path.join(audioDest, `${name}_reverse_${index}${ext}`)
+    if (fs.existsSync(vidDest)) return vidDest
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       ffmpeg(path.normalize(videoFile).replaceAll("\\", "/"))
-      .outputOptions([
-        "-af", "areverse",
-        "-c:v copy",
-        "-c:a aac" 
-      ])
-      .save(newDest)
-      .on("end", () => {
-          resolve()
-      })
+        .outputOptions([
+          "-map", `0:a:${index}`, "-vn",
+          "-af", "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,areverse",
+          "-c:a", "aac", 
+          "-b:a", "192k"
+        ])
+        .save(reversedAudio)
+        .on("end", () => resolve())
+        .on("error", (err) => reject(err))
     })
-    
-    return newDest
+
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(path.normalize(videoFile).replaceAll("\\", "/"))
+        .input(reversedAudio)
+        .outputOptions([
+          "-map", "0:v:0",
+          "-map", "1:a:0",
+          "-c:v", "copy",
+          "-c:a", "aac",
+          "-map_metadata", "0"
+        ])
+        .save(vidDest)
+        .on("end", () => resolve())
+        .on("error", (err) => reject(err))
+    })
+
+    fs.unlinkSync(reversedAudio)
+    return vidDest
 })
 
 ipcMain.handle("select-file", async () => {
@@ -600,10 +623,11 @@ ipcMain.handle("context-menu", (event, {hasSelection}) => {
     {label: "Copy Loop", click: () => event.sender.send("copy-loop")},
     {label: "Paste Loop", click: () => event.sender.send("paste-loop")},
     {type: "separator"},
+    {label: "Open Video Cache", click: () => shell.openPath(videoCacheLocation)},
     {label: "Clear Video Cache", click: () => {
-      const videoPath = path.join(app.getPath("documents"), `Motion Player/videos`)
-      const subtitlePath = path.join(app.getPath("documents"), `Motion Player/subtitles`)
-      const audioPath = path.join(app.getPath("documents"), `Motion Player/audio`)
+      const videoPath = path.join(videoCacheLocation, `videos`)
+      const subtitlePath = path.join(videoCacheLocation, `subtitles`)
+      const audioPath = path.join(videoCacheLocation, `audio`)
       mainFunctions.removeDirectory(videoPath)
       mainFunctions.removeDirectory(subtitlePath)
       mainFunctions.removeDirectory(audioPath)
@@ -710,7 +734,10 @@ const applicationMenu = () =>  {
       submenu: [
         {role: "reload"},
         {role: "forceReload"},
-        {role: "toggleDevTools"}
+        {role: "toggleDevTools"},
+        {type: "separator"},
+        {label: "Online Support", click: () => shell.openExternal(pack.repository)},
+        {label: "Privacy Policy", click: () => shell.openExternal(pack.privacyPolicy)}
       ]
     }
   ]
@@ -739,8 +766,6 @@ if (!singleLock) {
     window.removeMenu()
     window.setOpacity(windowOpacity / 100)
     openFile()
-    if (ffmpegPath && process.platform === "darwin") fs.chmodSync(ffmpegPath, "777")
-    if (ffprobePath && process.platform === "darwin") fs.chmodSync(ffprobePath, "777")
     localShortcut.register(window, "Control+Shift+I", () => {
       window?.webContents.openDevTools()
     })

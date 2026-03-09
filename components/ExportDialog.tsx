@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Motion Player - A cute video player ❤                     *
+ * Frame Player - A cute video player ❤                     *
  * Copyright © 2026 Moebytes <moebytes.com>                  *
  * Licensed under CC BY-NC 4.0. See license.txt for details. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -24,9 +24,17 @@ const ExportDialog: React.FunctionComponent = (props) => {
             setType(type)
         }
         const exportProgress = (event: any, progress: any) => {
-            setPercent((functions.parseSeconds(progress.timemark) / progress.duration) * 100)
-            setTimemark(functions.parseSeconds(progress.timemark))
-            setDuration(progress.duration)
+            const time = functions.parseSeconds(progress.timemark)
+            const duration = progress.duration
+
+            if (!duration || !time || Number.isNaN(time) || Number.isNaN(duration)) {
+                setPercent(0)
+            } else {
+                setPercent((time / duration) * 100)
+            }
+
+            setTimemark(time || 0)
+            setDuration(duration || 0)
         }
         window.ipcRenderer.on("show-export-dialog", showExportDialog)
         window.ipcRenderer.on("export-progress", exportProgress)

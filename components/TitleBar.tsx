@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Motion Player - A cute video player ❤                     *
+ * Frame Player - A cute video player ❤                     *
  * Copyright © 2026 Moebytes <moebytes.com>                  *
  * Licensed under CC BY-NC 4.0. See license.txt for details. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -104,7 +104,7 @@ const TitleBar: React.FunctionComponent = () => {
                 </div>
                 <div className="title-container">
                     <Icon className="app-icon"/>
-                    <span className="title">Motion Player</span>
+                    <span className="title">Frame Player</span>
                 </div>
                 <div className="title-button-container">
                     <UploadIcon className="title-bar-button" onClick={upload}/>
@@ -131,7 +131,7 @@ const TitleBar: React.FunctionComponent = () => {
             <div className="title-group-container">
                 <div className="title-container">
                     <Icon className="app-icon"/>
-                    <span className="title">Motion Player</span>
+                    <span className="title">Frame Player</span>
                 </div>
                 <div className="title-button-container">
                     <UploadIcon className="title-bar-button" onClick={upload}/>

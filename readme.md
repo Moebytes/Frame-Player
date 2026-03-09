@@ -1,4 +1,4 @@
-## Motion Player
+## Frame Player
 
 <img src="assets/images/readme.png">
 
@@ -26,28 +26,17 @@ A cute video player!
 - Ctrl O: Upload file
 - Ctrl S: Download file
 
-### Node.js
-
-Downloading YouTube videos will require Node.js. You must install it separately: https://nodejs.org/en
-
 ### Design
 
-Our design is available here: https://www.figma.com/design/PpYPQAYojONPWedMbDRL8t/Motion-Player 
+Our design is available here: https://www.figma.com/design/PpYPQAYojONPWedMbDRL8t/Frame-Player 
 
 ### Installation
 
-Download from [releases](https://github.com/Moebytes/Motion-Player/releases).
-
-### MacOS
-
-On MacOS unsigned applications won't open, run this to remove the quarantine flag.
-```
-xattr -d com.apple.quarantine "/Applications/Motion Player.app"
-```
+Download from [releases](https://github.com/Moebytes/Frame-Player/releases).
 
 ### See Also
 
 - [Tune Player](https://github.com/Moebytes/Tune-Player)
-- [Pic Viewer](https://github.com/Moebytes/Pic-Viewer)
+- [Pic Display](https://github.com/Moebytes/Pic-Display)
 
 

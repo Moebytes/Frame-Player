@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Motion Player - A cute video player ❤                     *
+ * Frame Player - A cute video player ❤                     *
  * Copyright © 2026 Moebytes <moebytes.com>                  *
  * Licensed under CC BY-NC 4.0. See license.txt for details. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1251,7 +1251,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             videoRef.current.pause()
             await window.ipcRenderer.invoke("export-dialog", true, "video")
             await window.ipcRenderer.invoke("export-video", forwardSrc, savePath, {reverse, speed, preservesPitch, 
-                abloop, loopStart, loopEnd, duration: videoRef.current.duration})
+                abloop, loopStart, loopEnd, duration: videoRef.current.duration, audioTracks})
             await window.ipcRenderer.invoke("export-dialog", false, "video")
             videoRef.current.load()
             videoRef.current.play()
@@ -1407,11 +1407,13 @@ const VideoPlayer: React.FunctionComponent = () => {
     return (
         <main className="video-player" onDrop={onDrop} onDragOver={dragOver}>
             <div className="video-player-container" ref={playerRef}>
-                <div className={hoverBar ? "left-bar visible" : "left-bar"} onMouseEnter={() => setHoverBar(true)} onMouseLeave={() => setHoverBar(false)}>
-                    <PreviousIcon className="bar-button" onClick={() => previous()}/>
+                <div className={hoverBar ? "left-bar visible" : "left-bar"}>
+                    <PreviousIcon className="bar-button" onClick={() => previous()} 
+                    onMouseEnter={() => setHoverBar(true)} onMouseLeave={() => setHoverBar(false)}/>
                 </div>
-                <div className={hoverBar ? "right-bar visible" : "right-bar"} onMouseEnter={() => setHoverBar(true)} onMouseLeave={() => setHoverBar(false)}>
-                    <NextIcon className="bar-button" onClick={() => next()}/>
+                <div className={hoverBar ? "right-bar visible" : "right-bar"}>
+                    <NextIcon className="bar-button" onClick={() => next()}
+                    onMouseEnter={() => setHoverBar(true)} onMouseLeave={() => setHoverBar(false)}/>
                 </div>
                 <TransformWrapper ref={zoomRef} minScale={0.5} limitToBounds={false} minPositionX={-200} maxPositionX={200} 
                 minPositionY={-200} maxPositionY={200} onZoom={(ref) => setZoomScale(ref.state.scale)}
