@@ -12,6 +12,7 @@ import path from "path"
 import ffmpeg from "fluent-ffmpeg"
 import process from "process"
 import fs from "fs"
+import os from "os"
 import functions, {VideoTrack, VideoChapter} from "./structures/functions"
 import mainFunctions from "./structures/mainFunctions"
 import Youtube from "youtube.ts"
@@ -45,7 +46,14 @@ let chapters = [] as VideoChapter[]
 let audioTracks = [] as VideoTrack[]
 let subtitleTracks = [] as VideoTrack[]
 
-const videoCacheLocation = path.join(app.getPath("downloads"), "Frame Player assets")
+if (process.platform === "darwin") {
+  const teamId = "EKBT5ADU6E"
+  const groupPath = path.join(os.homedir(), `Library/Group Containers/${teamId}.${pack.build.appId}`)
+  if (!fs.existsSync(groupPath)) fs.mkdirSync(groupPath, {recursive: true})
+  app.setPath("userData", groupPath)
+}
+
+const videoCacheLocation = path.join(app.getPath("userData"), "assets")
 
 ipcMain.handle("close", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

@@ -746,7 +746,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             if (!trackRef.current) return
             trackRef.current.removeEventListener("load", onSubtitleLoad)
         }
-    }, [subtitlesLoaded])
+    }, [subtitlesLoaded, subtitleSrc])
 
     useEffect(() => {
         document.documentElement.style.setProperty("--subtitleColor", subtitleColor)
