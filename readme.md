@@ -30,9 +30,14 @@ A cute video player!
 
 Our design is available here: https://www.figma.com/design/PpYPQAYojONPWedMbDRL8t/Frame-Player 
 
-### Installation
+### Purchase
 
-Download from [releases](https://github.com/Moebytes/Frame-Player/releases).
+<a href="https://apps.apple.com/us/app/frame-player/id6760277892" target="_blank">
+  <img src="assets/images/mac-app-store.svg" style="height:60px"/>
+</a>
+<br/><br/>
+
+Linux version is free and available in [releases](https://github.com/Moebytes/Frame-Player/releases).
 
 ### See Also
 
