@@ -46,8 +46,8 @@
       "entitlements": "assets/mas/entitlements.mas.plist",
       "entitlementsInherit": "assets/mas/entitlements.mas.inherit.plist",
       "binaries": [
-        "ffmpeg/ffmpeg",
-        "ffmpeg/ffprobe"
+        "ffmpeg/ffmpeg.app",
+        "ffmpeg/ffprobe.app"
       ]
     },
     "dmg": {
