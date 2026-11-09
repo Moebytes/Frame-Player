@@ -70,6 +70,7 @@ const VideoPlayer: React.FunctionComponent = () => {
     const [animationData, setAnimationData] = useState(null as AnimationFrame[] | null)
     const [subtitlesLoaded, setSubtitlesLoaded] = useState(false)
     const [subtitleText, setSubtitleText] = useState("")
+    const [externalSubtitle, setExternalSubtitle] = useState<{name: string, vtt: string, ass: string | null} | null>(null)
     const [processing, setProcessing] = useState(false)
     const [videoTracks, setVideoTracks] = useState([] as VideoTrack[])
     const [audioTracks, setAudioTracks] = useState([] as VideoTrack[])
@@ -105,6 +106,7 @@ const VideoPlayer: React.FunctionComponent = () => {
     const speedBar = useRef(null) as any
     const zoomRef = useRef(null) as any
     const posRef = useRef(0)
+    const subtitleUploadPending = useRef(false)
 
     useEffect(() => {
         progressBar.current?.resize()
@@ -169,6 +171,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         abSlider.current.slider.style.display = "none"
         window.addEventListener("mouseup", onWindowMouseUp)
         window.ipcRenderer.on("open-file", openFile)
+        window.ipcRenderer.on("upload-subtitle", uploadSubtitle)
         window.ipcRenderer.on("upload-file", uploadFile)
         window.ipcRenderer.on("open-link", openLink)
         window.ipcRenderer.on("trigger-download", triggerDownload)
@@ -182,6 +185,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         return () => {
             window.removeEventListener("mouseup", onWindowMouseUp)
             window.ipcRenderer.removeListener("open-file", openFile)
+            window.ipcRenderer.removeListener("upload-subtitle", uploadSubtitle)
             window.ipcRenderer.removeListener("upload-file", uploadFile)
             window.ipcRenderer.removeListener("open-link", openLink)
             window.ipcRenderer.removeListener("trigger-download", triggerDownload)
@@ -764,15 +768,19 @@ const VideoPlayer: React.FunctionComponent = () => {
                 setSubtitleText("")
             }
         }
+        const activeCues = Array.from(track.activeCues ?? []) as VTTCue[]
+        setSubtitleText(activeCues.map((cue) => functions.cleanHTML(cue.text)).join("\n"))
     })
 
     useEffect(() => {
         if (!subtitlesLoaded || !trackRef.current) return
 
-        trackRef.current.addEventListener("load", onSubtitleLoad)
+        const element = trackRef.current
+        element.addEventListener("load", onSubtitleLoad)
+        element.track.mode = "hidden"
+        onSubtitleLoad()
         return () => {
-            if (!trackRef.current) return
-            trackRef.current.removeEventListener("load", onSubtitleLoad)
+            element.removeEventListener("load", onSubtitleLoad)
         }
     }, [subtitlesLoaded, subtitleSrc])
 
@@ -820,6 +828,9 @@ const VideoPlayer: React.FunctionComponent = () => {
             setAnimation(false)
             setVideoLoaded(false)
             setAnimationLoaded(false)
+            setExternalSubtitle(null)
+            setCurrentSubtitleTrack(null)
+            setSubtitleSrc(null)
             setSubtitlesLoaded(false)
             setSubtitleText("")
             setSubtitles(false)
@@ -836,6 +847,9 @@ const VideoPlayer: React.FunctionComponent = () => {
             setAnimation(true)
             setAnimationLoaded(false)
             setVideoLoaded(false)
+            setExternalSubtitle(null)
+            setCurrentSubtitleTrack(null)
+            setSubtitleSrc(null)
             setSubtitlesLoaded(false)
             setSubtitleText("")
             setSubtitles(false)
@@ -898,29 +912,54 @@ const VideoPlayer: React.FunctionComponent = () => {
 
     
 
+    const uploadSubtitle = useEffectEvent(async () => {
+        if (!originalSrc || animation || subtitleUploadPending.current) return
+        subtitleUploadPending.current = true
+        try {
+            const file = await window.ipcRenderer.invoke("select-subtitle-file")
+            if (!file) return
+            setCurrentSubtitleTrack(null)
+            setExternalSubtitle(file)
+            setSubtitles(true)
+        } finally {
+            subtitleUploadPending.current = false
+        }
+    })
+
+    useEffect(() => {
+        if (!externalSubtitle) return
+        const url = URL.createObjectURL(new Blob([externalSubtitle.vtt], {type: "text/vtt"}))
+        setSubtitleSrc(url)
+        setSubtitlesLoaded(true)
+        return () => URL.revokeObjectURL(url)
+    }, [externalSubtitle])
+
+    const styledSubtitles = originalStyle && Boolean(externalSubtitle?.ass || subtitleSrc?.endsWith(".ass"))
+
     useEffect(() => {
         const updateASS = async () => {
-            if (!subtitleSrc || !videoRef.current || !assContainerRef.current) return
-
             if (assRef.current) {
                 assRef.current.destroy()
                 assRef.current = null
             }
 
-            if (originalStyle && subtitleSrc.endsWith(".ass")) {
+            if (!subtitleSrc || !videoRef.current || !assContainerRef.current) return
+
+            if (styledSubtitles) {
                 setSubtitleText("")
-                const content = await fetch(subtitleSrc).then((r) => r.text())
+                const content = externalSubtitle?.ass || await fetch(subtitleSrc).then((r) => r.text())
+                if (!content) return
                 assRef.current = new ASS(content, videoRef.current, {
                     container: assContainerRef.current,
                 })
             }
         }
         updateASS()
-    }, [originalStyle, subtitleSrc])
+    }, [originalStyle, subtitleSrc, externalSubtitle])
 
     useEffect(() => {
         const updateSubtitles = async () => {
-            if (!currentSubtitleTrack) return
+            if (externalSubtitle || !currentSubtitleTrack) return
             let format = originalStyle && currentSubtitleTrack.codec === "ass" ? "ass" : "vtt"
             
             const subtitles = await window.ipcRenderer.invoke("extract-subtitle-track", originalSrc, 
@@ -935,7 +974,7 @@ const VideoPlayer: React.FunctionComponent = () => {
             }
         }
         updateSubtitles()
-    }, [currentSubtitleTrack, originalStyle, originalSrc])
+    }, [currentSubtitleTrack, originalStyle, originalSrc, externalSubtitle])
 
     const onAnimationLoaded = async () => {
         if (!animationRef.current) return
@@ -1349,6 +1388,7 @@ const VideoPlayer: React.FunctionComponent = () => {
         const subtitlePath = await window.ipcRenderer.invoke("extract-subtitle-track", originalSrc, track.index, format).catch(() => null)
         if (!subtitlePath) return setProcessing(false)
 
+        setExternalSubtitle(null)
         setSubtitles(true)
         setSubtitleSrc(subtitlePath)
         setSubtitlesLoaded(true)
@@ -1465,7 +1505,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                 alignmentAnimation={{disabled: true}} doubleClick={{mode: "reset", animationTime: 0}}>
                     <TransformComponent>
                     <div className="video-filters" ref={filterRef} onMouseDown={videoMouseDown} onMouseMove={videoMouseMove} onMouseUp={videoMouseUp}>
-                        <div ref={assContainerRef} className="ass-subtitles"></div>
+                        <div ref={assContainerRef} className="ass-subtitles" style={{display: subtitles ? undefined : "none"}}></div>
                         <img className="video-lightness-overlay" ref={lightnessRef} src={backFrame}/>
                         <canvas className="video-sharpen-overlay" ref={sharpnessRef}></canvas>
                         <canvas className="video-pixelate-canvas" ref={pixelateRef}></canvas>
@@ -1480,7 +1520,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                 <div className={paused && hover ? "control-title-container visible" : "control-title-container"}>
                     <p className="control-title">{getName()}</p>
                 </div>
-                {subtitles ?
+                {subtitles && !styledSubtitles ?
                 <div className="video-subtitle-container" style={{bottom: `${subtitleBottom}px`}}>
                     <p className="video-subtitles">{subtitleText}</p>
                 </div> 
@@ -1558,7 +1598,7 @@ const VideoPlayer: React.FunctionComponent = () => {
                                     <span className="popup-text">Subtitle Track</span>
                                 </div>
                                 <div className="popup-row">
-                                    <DropdownButton title={functions.getLanguageName(currentSubtitleTrack?.language || "None")} drop="down">
+                                    <DropdownButton title={externalSubtitle?.name || functions.getLanguageName(currentSubtitleTrack?.language || "None")} drop="down">
                                         {subtitleTracks.map((track) => (
                                             <Dropdown.Item onClick={() => changeSubtitleTrack(track)}>{functions.getLanguageName(track.language)}</Dropdown.Item>
                                         ))}

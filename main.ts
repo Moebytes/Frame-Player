@@ -9,6 +9,7 @@ import localShortcut from "electron-localshortcut"
 import Store from "electron-store"
 import dragAddon from "electron-click-drag-plugin"
 import path from "path"
+import {fileURLToPath} from "url"
 import ffmpeg from "fluent-ffmpeg"
 import process from "process"
 import fs from "fs"
@@ -327,6 +328,50 @@ ipcMain.handle("upload-file", () => {
   window?.webContents.send("upload-file")
 })
 
+ipcMain.handle("upload-subtitle", (event) => {
+  event.sender.send("upload-subtitle")
+})
+
+ipcMain.handle("select-subtitle-file", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return null
+
+  const files = await dialog.showOpenDialog(win, {
+    title: "Upload Subtitles",
+    filters: [{name: "Subtitles", extensions: ["srt", "ass", "vtt"]}],
+    properties: ["openFile"]
+  })
+  const file = files.filePaths[0]
+  if (files.canceled || !file) return null
+
+  let tempDir: string | undefined
+  try {
+    const ext = path.extname(file).toLowerCase()
+    if (![".srt", ".ass", ".vtt"].includes(ext)) throw new Error("Unsupported subtitle format")
+    let vtt: string
+    if (ext === ".vtt") {
+      vtt = fs.readFileSync(file, "utf8")
+    } else if (ext === ".srt") {
+      const srt = fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim()
+      vtt = `WEBVTT\n\n${srt.replace(/(\d{2,}:\d{2}:\d{2}),(\d{3})/g, "$1.$2")}\n`
+    } else {
+      tempDir = fs.mkdtempSync(path.join(app.getPath("temp"), "frame-subtitles-"))
+      const output = path.join(tempDir, "subtitles.vtt")
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(file).outputOptions(["-map", "0:s:0", "-c:s", "webvtt"])
+          .on("end", () => resolve()).on("error", reject).save(output)
+      })
+      vtt = await fs.promises.readFile(output, "utf8")
+    }
+    return {name: path.basename(file), vtt, ass: ext === ".ass" ? fs.readFileSync(file, "utf8") : null}
+  } catch (error) {
+    console.error("Unable to load subtitles:", error)
+    return null
+  } finally {
+    if (tempDir) fs.rmSync(tempDir, {recursive: true, force: true})
+  }
+})
+
 ipcMain.handle("show-info-dialog", async (event: any, videoFile: string) => {
   if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
   let args = ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", videoFile]
@@ -370,16 +415,24 @@ ipcMain.handle("show-info-dialog", async (event: any, videoFile: string) => {
 })
 
 ipcMain.handle("get-tracks", async (event, videoFile: string) => {
-  if (videoFile.startsWith("file:///")) videoFile = videoFile.replace("file:///", "")
-  let args = ["-v", "error", "-print_format", "json", "-show_streams", "-show_chapters", videoFile]
-
-  const str = await mainFunctions.spawn(ffprobePath ?? "ffprobe", args).then((s: any) => s.stdout).catch((e: any) => e.stderr)
-  const json = JSON.parse(str)
-
   let tracks = [] as VideoTrack[]
   chapters = []
   audioTracks = []
   subtitleTracks = []
+
+  let json
+  try {
+    if (videoFile.startsWith("file:")) videoFile = fileURLToPath(videoFile)
+    const args = ["-v", "error", "-print_format", "json", "-show_streams", "-show_chapters", videoFile]
+    const {stdout} = await mainFunctions.spawn(ffprobePath ?? "ffprobe", args)
+    json = JSON.parse(stdout)
+    if (!Array.isArray(json?.streams)) throw new Error("FFprobe returned no streams")
+  } catch (error) {
+    console.error("Unable to load tracks:", error)
+    applicationMenu()
+    return {tracks, chapters}
+  }
+
   let subtitleCount = 0
   let audioCount = 0
   let videoCount = 0

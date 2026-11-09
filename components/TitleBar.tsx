@@ -18,6 +18,7 @@ import UploadIcon from "../assets/svg/upload.svg"
 import DownloadIcon from "../assets/svg/download.svg"
 import SearchIcon from "../assets/svg/search.svg"
 import FXIcon from "../assets/svg/fx.svg"
+import CCIcon from "../assets/svg/cc.svg"
 import VideoDragIcon from "../assets/svg/vid-drag.svg"
 import VideoPanIcon from "../assets/svg/vid-pan.svg"
 import TransparentIcon from "../assets/svg/transparent.svg"
@@ -75,6 +76,10 @@ const TitleBar: React.FunctionComponent = () => {
         window.ipcRenderer.invoke("show-fx-dialog")
     }
 
+    const cc = () => {
+        window.ipcRenderer.invoke("upload-subtitle")
+    }
+
     const drag = () => {
         setVideoDrag(!videoDrag)
     }
@@ -118,6 +123,7 @@ const TitleBar: React.FunctionComponent = () => {
                     <DownloadIcon className="title-bar-button" onClick={download}/>
                     <SearchIcon className="title-bar-button" onClick={search}/>
                     <FXIcon className="title-bar-button" onClick={fx}/>
+                    <CCIcon className="title-bar-button" onClick={cc}/>
                     {videoDrag ?
                     <VideoDragIcon className="title-bar-button" onClick={drag}/> :
                     <VideoPanIcon className="title-bar-button" onClick={drag}/>}
@@ -145,6 +151,7 @@ const TitleBar: React.FunctionComponent = () => {
                     <DownloadIcon className="title-bar-button" onClick={download}/>
                     <SearchIcon className="title-bar-button" onClick={search}/>
                     <FXIcon className="title-bar-button" onClick={fx}/>
+                    <CCIcon className="title-bar-button" onClick={cc}/>
                     {videoDrag ?
                     <VideoDragIcon className="title-bar-button" onClick={drag}/> :
                     <VideoPanIcon className="title-bar-button" onClick={drag}/>}
